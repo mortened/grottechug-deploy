@@ -139,10 +139,19 @@ importRouter.post("/excel", upload.single("file"), async (req, res) => {
 
       const isRegular = regularNames.has(name);
 
+      const nameLower = name.toLowerCase();
+
       const participant = await prisma.participant.upsert({
-        where: { name },
-        update: { isRegular },
-        create: { name, isRegular }
+        where: { nameLower }, // ✅
+        update: {
+          name,               // hold original casing pen
+          isRegular
+        },
+        create: {
+          name,
+          nameLower,
+          isRegular
+        }
       });
 
       for (const dc of dateCols) {

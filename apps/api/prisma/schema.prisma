@@ -10,7 +10,8 @@ generator client {
 model Participant {
   id        String   @id @default(cuid())
   name      String   @unique
-  isRegular Boolean  @default(false) // settes via import (2026V faste over "Gjester")
+  nameLower String   @unique    
+  isRegular Boolean  @default(false)
   createdAt DateTime @default(now())
 
   attempts   Attempt[]

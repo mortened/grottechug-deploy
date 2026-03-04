@@ -17,8 +17,8 @@ export function Navbar() {
             <NavLink to="/wheel" style={linkStyle}>Hjulet</NavLink>
             <NavLink to="/chug" style={linkStyle}>Chuggelista</NavLink>
             <NavLink to="/rules" style={linkStyle}>Regler</NavLink>
-            <NavLink to="/violations" style={linkStyle}>Kryssliste</NavLink>
-            <NavLink to="/guests" style={linkStyle}>Gjester</NavLink>
+            <NavLink to="/leaderboard" style={linkStyle}>Toppliste</NavLink>
+            <NavLink to="/stats" style={linkStyle}>Statistikk</NavLink>
           </div>
         </div>
       </div>

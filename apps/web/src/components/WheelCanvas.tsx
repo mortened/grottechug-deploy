@@ -75,7 +75,7 @@ export function WheelCanvas({ names, angle, size = 360, winnerName }: Props) {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(mid);                 // roter til segmentretning
-      ctx.translate(r * 0.20, 0);      // start litt ut fra sentrum
+      ctx.translate(r * 0.62, 0);      // start nærmere utsiden
       ctx.fillStyle = "rgba(255,255,255,0.92)";
       ctx.font = "600 14px system-ui";
       ctx.textAlign = "left";
@@ -96,9 +96,9 @@ export function WheelCanvas({ names, angle, size = 360, winnerName }: Props) {
 
     // pointer at right
     ctx.beginPath();
-    ctx.moveTo(size - 8, cy);
-    ctx.lineTo(size - 36, cy - 14);
-    ctx.lineTo(size - 36, cy + 14);
+    ctx.moveTo(size - 36, cy);
+    ctx.lineTo(size -8, cy - 14);
+    ctx.lineTo(size - 8, cy + 14);
     ctx.closePath();
     ctx.fillStyle = "rgba(233,237,255,0.95)";
     ctx.fill();

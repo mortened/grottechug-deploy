@@ -3,8 +3,10 @@ import { Layout } from "./Layout";
 import { WheelPage } from "../pages/WheelPage";
 import { ChugListPage } from "../pages/ChugListPage";
 import { RulesPage } from "../pages/RulesPage";
-import { ViolationsPage } from "../pages/ViolationsPage";
 import { GuestsPage } from "../pages/GuestsPage";
+import { LeaderboardPage } from "../pages/LeaderboardPage";
+import { PersonPage } from "../pages/PersonPage";
+import { StatsDashboardPage } from "../pages/StatsDashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -15,8 +17,10 @@ export const router = createBrowserRouter([
       { path: "wheel", element: <WheelPage /> },
       { path: "chug", element: <ChugListPage /> },
       { path: "rules", element: <RulesPage /> },
-      { path: "violations", element: <ViolationsPage /> },
       { path: "guests", element: <GuestsPage /> },
+      { path: "leaderboard", element: <LeaderboardPage /> },
+      { path: "person/:id", element: <PersonPage /> },
+      { path: "stats", element: <StatsDashboardPage /> }
     ]
   }
 ]);

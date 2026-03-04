@@ -1,0 +1,16 @@
+{
+  "name": "grottechugg",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c auto \"npm -w apps/api run dev\" \"npm -w apps/web run dev\"",
+    "dev:api": "npm -w apps/api run dev",
+    "dev:web": "npm -w apps/web run dev",
+    "build": "npm -w apps/api run build && npm -w apps/web run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

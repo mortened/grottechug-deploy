@@ -1,0 +1,64 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Participant {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isRegular Boolean  @default(false) // settes via import (2026V faste over "Gjester")
+  createdAt DateTime @default(now())
+
+  attempts   Attempt[]
+  violations Violation[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  semester  String   // "2026V" | "2025H" | "UNKNOWN" (valg fritt, men String holder)
+  createdAt DateTime @default(now())
+
+  attempts   Attempt[]
+  violations Violation[]
+}
+
+model Attempt {
+  id            String   @id @default(cuid())
+  participantId String
+  sessionId     String
+  seconds       Float
+  note          String?
+
+  participant Participant @relation(fields: [participantId], references: [id])
+  session     Session     @relation(fields: [sessionId], references: [id])
+
+  @@unique([participantId, sessionId])
+}
+
+model Rule {
+  id      String @id @default(cuid())
+  code    String @unique
+  label   String
+  crosses Float
+  details String?
+}
+
+model Violation {
+  id            String   @id @default(cuid())
+  participantId String
+  sessionId     String
+  ruleCode      String
+  reason        String?
+  crosses       Float
+  createdAt     DateTime @default(now())
+
+  participant Participant @relation(fields: [participantId], references: [id])
+  session     Session     @relation(fields: [sessionId], references: [id])
+
+  @@index([participantId, sessionId])
+}

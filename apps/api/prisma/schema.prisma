@@ -13,6 +13,7 @@ model Participant {
   nameLower String   @unique    
   isRegular Boolean  @default(false)
   createdAt DateTime @default(now())
+  imageUrl  String?
 
   attempts   Attempt[]
   violations Violation[]

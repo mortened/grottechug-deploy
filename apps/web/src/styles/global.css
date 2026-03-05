@@ -266,3 +266,33 @@ td.sticky, th.sticky{
   place-items: center;
   padding: 12px;
 }
+
+.grottaGrid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.grottaCard{
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.16);
+  border-radius: 16px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: 120ms ease;
+}
+.grottaCard:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.05);
+}
+
+.cardCard {
+  padding: 12px;
+  text-align: left;
+  background: rgba(0,0,0,0.16);
+}
+.cardCard:hover {
+  transform: translateY(-1px);
+}

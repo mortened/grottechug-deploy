@@ -6,6 +6,7 @@ import { RulesPage } from "../pages/RulesPage";
 import { LeaderboardPage } from "../pages/LeaderboardPage";
 import { PersonPage } from "../pages/PersonPage";
 import { StatsDashboardPage } from "../pages/StatsDashboardPage";
+import { GrottaPage } from "../pages/GrottaPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +19,8 @@ export const router = createBrowserRouter([
       { path: "rules", element: <RulesPage /> },
       { path: "leaderboard", element: <LeaderboardPage /> },
       { path: "person/:id", element: <PersonPage /> },
-      { path: "stats", element: <StatsDashboardPage /> }
+      { path: "stats", element: <StatsDashboardPage /> },
+      { path: "grotta", element: <GrottaPage /> }
     ]
   }
 ]);

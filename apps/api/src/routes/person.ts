@@ -37,7 +37,7 @@ personRouter.get("/:id", async (req, res) => {
   const bestClean = cleanTimes.length ? Math.min(...cleanTimes) : null;
 
   res.json({
-    participant: { id: p.id, name: p.name, isRegular: p.isRegular },
+    participant: { id: p.id, name: p.name, isRegular: p.isRegular, imageUrl: p.imageUrl },
     semester,
     points,
     stats: {

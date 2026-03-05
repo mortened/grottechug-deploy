@@ -23,6 +23,9 @@ export function Navbar() {
             <NavLink to="/stats" className={({ isActive }) => `navLink ${isActive ? "navLinkActive" : ""}`}>
               Statistikk
             </NavLink>
+            <NavLink to="/grotta" className={({ isActive }) => `navLink ${isActive ? "navLinkActive" : ""}`}>
+              Grotta
+            </NavLink>
           </div>
         </div>
       </div>

@@ -14,9 +14,10 @@ participantsRouter.get("/search", async (req, res) => {
   const q = query.toLowerCase();
 
   const people = await prisma.participant.findMany({
-    where: { nameLower: { contains: q } }, // ✅ ingen "mode"
+    where: { nameLower: { contains: q } },
     orderBy: [{ isRegular: "desc" }, { name: "asc" }],
-    take: 12
+    take: 12,
+    select: { id: true, name: true, isRegular: true, imageUrl: true }
   });
 
   res.json(people);
@@ -31,7 +32,8 @@ participantsRouter.get("/", async (req, res) => {
 
   const people = await prisma.participant.findMany({
     where,
-    orderBy: [{ isRegular: "desc" }, { name: "asc" }]
+    orderBy: [{ isRegular: "desc" }, { name: "asc" }],
+    select: { id: true, name: true, isRegular: true, imageUrl: true }
   });
 
   res.json(people);
@@ -40,8 +42,6 @@ participantsRouter.get("/", async (req, res) => {
 /**
  * POST /api/participants/guest-upsert
  * body: { name: "Maria" }
- * - returnerer eksisterende (case-insensitive) hvis den finnes
- * - ellers oppretter ny gjest
  */
 participantsRouter.post("/guest-upsert", async (req, res) => {
   const name = String(req.body?.name ?? "").trim();
@@ -49,38 +49,36 @@ participantsRouter.post("/guest-upsert", async (req, res) => {
 
   const nameLower = name.toLowerCase();
 
-  // ✅ Finn på nameLower (case-insensitive)
-  const existing = await prisma.participant.findUnique({ where: { nameLower } });
-  if (existing) return res.json(existing);
-
-  const created = await prisma.participant.create({
-    data: {
-      name,
-      nameLower,
-      isRegular: false
-    }
+  const p = await prisma.participant.upsert({
+    where: { nameLower },
+    update: {}, // behold som den er hvis finnes
+    create: { name, nameLower, isRegular: false },
+    select: { id: true, name: true, isRegular: true, imageUrl: true }
   });
 
-  res.json(created);
-});
-
-/**
- * DELETE /api/participants/:id
- * (legg disse til sist!)
- */
-participantsRouter.delete("/:id", async (req, res) => {
-  await prisma.participant.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
+  res.json(p);
 });
 
 /**
  * DELETE /api/participants/:id/hard
- * (sletter attempts + violations først)
+ * (må ligge før /:id)
  */
 participantsRouter.delete("/:id/hard", async (req, res) => {
   const { id } = req.params;
-  await prisma.attempt.deleteMany({ where: { participantId: id } });
-  await prisma.violation.deleteMany({ where: { participantId: id } });
-  await prisma.participant.delete({ where: { id } });
+
+  await prisma.$transaction([
+    prisma.attempt.deleteMany({ where: { participantId: id } }),
+    prisma.violation.deleteMany({ where: { participantId: id } }),
+    prisma.participant.delete({ where: { id } })
+  ]);
+
+  res.json({ ok: true });
+});
+
+/**
+ * DELETE /api/participants/:id
+ */
+participantsRouter.delete("/:id", async (req, res) => {
+  await prisma.participant.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
 });

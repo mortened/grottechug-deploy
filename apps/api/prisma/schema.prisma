@@ -23,6 +23,7 @@ model Session {
   date      DateTime @unique
   semester  String   // "2026V" | "2025H" | "UNKNOWN" (valg fritt, men String holder)
   createdAt DateTime @default(now())
+  note      String?
 
   attempts   Attempt[]
   violations Violation[]

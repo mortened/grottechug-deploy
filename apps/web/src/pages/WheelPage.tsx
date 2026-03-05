@@ -286,6 +286,39 @@ export function WheelPage() {
       requestAnimationFrame(anim);
     }
 
+  async function addGuestByName(name: string) {
+    setFreezeWheel(false); // Tin opp hjulet
+
+    const n = name.trim();
+    if (!n) return;
+
+    // Opprett hvis ikke finnes (eller returner eksisterende)
+    const res = await fetch("/api/participants/guest-upsert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: n })
+    });
+
+    const p: Participant = await res.json();
+
+    // Hvis det var en fast (burde sjelden skje), bare huk den av
+    if (p.isRegular) {
+      setPresent(prev => ({ ...prev, [p.id]: true }));
+      setGuestQuery("");
+      setGuestSuggestions([]);
+      return;
+    }
+
+    // Legg til nederst hvis den ikke allerede er lagt til i dag
+    setSelectedGuests(prev => (prev.some(x => x.id === p.id) ? prev : [...prev, p]));
+
+    // Huk den av (default)
+    setPresent(prev => ({ ...prev, [p.id]: true }));
+
+    setGuestQuery("");
+    setGuestSuggestions([]);
+  }
+
   function removeSelectedGuest(id: string) {
     setFreezeWheel(false); // Tin opp hjulet
 

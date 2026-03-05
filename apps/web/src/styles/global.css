@@ -133,3 +133,30 @@ td.sticky, th.sticky{
   color: rgba(233,237,255,0.80);
   font-weight: 700;
 }
+
+.cellInput {
+  width: 74px;
+  text-align: center;
+  padding: 6px 6px;
+}
+
+.cellDirty {
+  outline: 2px solid rgba(255, 193, 7, 0.45);
+  border-radius: 8px;
+}
+
+.sheetBar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.pill {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: var(--muted);
+}

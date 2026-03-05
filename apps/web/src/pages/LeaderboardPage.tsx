@@ -1,3 +1,4 @@
+// LeaderboardPage.tsx
 import { useEffect, useState } from "react";
 
 type Semester = "2026V" | "2025H" | "all";
@@ -33,18 +34,19 @@ export function LeaderboardPage() {
       <div className="row" style={{ marginTop: 14 }}>
         <div className="col card">
           <h2>Podium</h2>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-            {[1, 0, 2].map(pos => {
+         <div className="podium">
+            {[1,0,2].map(pos => {
               const r = top3[pos];
               const label = pos === 0 ? "1." : pos === 1 ? "2." : "3.";
               const height = pos === 0 ? 140 : pos === 1 ? 110 : 90;
+
               return (
-                <div key={pos} style={{ flex: 1, textAlign: "center" }}>
-                  <div style={{ marginBottom: 8, fontWeight: 800 }}>{label}</div>
-                  <div style={{ height, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.18)", display: "grid", placeItems: "center", padding: 10 }}>
+                <div key={pos} className="podiumSlot">
+                  <div className="podiumLabel">{label}</div>
+                  <div className="podiumBox" style={{ height }}>
                     {r ? (
                       <div>
-                        <div style={{ fontWeight: 800 }}>{r.name}</div>
+                        <div style={{ fontWeight: 900 }}>{r.name}</div>
                         <div style={{ color: "var(--muted)" }}>{r.bestClean.toFixed(2)}s</div>
                       </div>
                     ) : (

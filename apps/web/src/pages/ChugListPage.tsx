@@ -1,3 +1,4 @@
+// ChugListPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -323,11 +324,21 @@ export function ChugListPage() {
       <h1>Chuggelista</h1>
 
       <div className="sheetBar">
-        <button className="btn" onClick={() => setSemester("2025H")} disabled={semester === "2025H"}>2025 Høst</button>
-        <button className="btn" onClick={() => setSemester("2026V")} disabled={semester === "2026V"}>2026 Vår</button>
-        <button className="btn" onClick={() => setSemester("all")} disabled={semester === "all"}>Total</button>
+        <div className="sheetBar">
+          <div className="tabs">
+            <button className={`tab ${semester === "2025H" ? "tabActive" : ""}`} onClick={() => setSemester("2025H")}>
+              2025 Høst
+            </button>
+            <button className={`tab ${semester === "2026V" ? "tabActive" : ""}`} onClick={() => setSemester("2026V")}>
+              2026 Vår
+            </button>
+            <button className={`tab ${semester === "all" ? "tabActive" : ""}`} onClick={() => setSemester("all")}>
+              Total
+            </button>
+          </div>
         <button className="btn" onClick={load}>Oppdater</button>
         <button className="btn" onClick={() => setNewDayOpen(true)}>+ Ny dag</button>
+          </div>
 
         <div style={{ flex: 1 }} />
 
@@ -354,17 +365,8 @@ export function ChugListPage() {
       </div>
 
       {newDayOpen && (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.55)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 100
-      }}
-    >
-      <div className="card" style={{ width: 460 }}>
+    <div className="modalOverlay">
+      <div className="card modalCard">
         <h2>Legg til ny dag</h2>
 
         <label>Dato (dd/mm/yyyy)</label>

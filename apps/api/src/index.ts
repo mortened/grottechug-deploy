@@ -30,6 +30,5 @@ app.use("/api/person", personRouter);
 app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/analytics", analyticsRouter);
 
-
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => console.log(`API running on http://localhost:${port}`));

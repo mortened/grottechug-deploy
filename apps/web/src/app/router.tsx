@@ -20,7 +20,7 @@ export const router = createBrowserRouter([
       { path: "leaderboard", element: <LeaderboardPage /> },
       { path: "person/:id", element: <PersonPage /> },
       { path: "stats", element: <StatsDashboardPage /> },
-      { path: "grotta", element: <GrottaPage /> }
+      { path: "grotta", element: <GrottaPage /> },
     ]
   }
 ]);

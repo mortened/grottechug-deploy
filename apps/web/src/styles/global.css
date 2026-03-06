@@ -1,14 +1,19 @@
 /* src/styles/global.css */
+
+/* --- FIKS FOR SIDELENGS HOPPING --- */
+html {
+  overflow-y: scroll; /* Reserverer alltid plass til scrollbaren. Fjerner sidelengs hopping! */
+}
+
 * { box-sizing: border-box; }
 
 html, body { 
-  min-height: 100vh; /* Endret fra height: 100% */
+  min-height: 100vh;
 }
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  /* Vi legger bildet nederst, og en mørk gradient over for å dempe fargene */
   background: 
     linear-gradient(rgba(11, 16, 32, 0.85), rgba(11, 16, 32, 0.85)), 
     url('/gnottene.png');
@@ -19,306 +24,260 @@ body {
   color: var(--text);
 }
 
-/* Valgfritt: Legg til en svak blur for å skape mer dybde og mindre visuell støy */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   background: inherit;
-  filter: blur(4px); /* Juster denne for mer/mindre uskarphet */
+  filter: blur(4px);
   z-index: -1;
 }
 
-a{ color:inherit; text-decoration:none; }
+a { color: inherit; text-decoration: none; }
 
-.container{
-  max-width:1100px;
-  margin:0 auto;
-  padding:20px;
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
-.card{
+/* --- DYNAMISK NAVBAR --- */
+
+.navWrap {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navBar {
+  background: rgba(11, 16, 32, 0.95);
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navInner {
+  display: flex;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navLogo {
+  display: block;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navLogo:hover {
+  transform: scale(1.03) rotate(-1deg);
+}
+
+/* 1. HERO MODE (Forsiden, ikke scrollet) */
+.heroMode .navBar {
+  padding: 40px 0;
+  background: rgba(11, 16, 32, 0.7); /* Litt mer gjennomsiktig på forsiden */
+}
+.heroMode .navInner {
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.heroMode .navLogo {
+  height: 200px; /* Massiv logo */
+  width: auto;
+  filter: drop-shadow(0 0 20px rgba(124, 92, 255, 0.4));
+}
+.heroMode .navLinks {
+  justify-content: center;
+  width: 100%;
+}
+
+/* 2. COMPACT MODE (Andre sider, eller scrollet) */
+.compactMode .navBar {
+  padding: 12px 0; /* Gir en litt tykkere navbar */
+}
+.compactMode .navInner {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.compactMode .navLogo {
+  height: 80px; /* Gjort større/tykkere som du ba om tidligere */
+  width: auto;
+  filter: drop-shadow(0 0 8px rgba(124, 92, 255, 0.2));
+}
+.compactMode .navLinks {
+  justify-content: flex-end;
+}
+
+/* 3. PLACEHOLDER
+  Dette fikser avstanden på de andre sidene dine!
+*/
+.navPlaceholder {
+  width: 100%;
+  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.navPlaceholder.hero {
+  height: 330px; /* Matcher Hero-navbaren */
+}
+.navPlaceholder.compact {
+  height: 120px; /* FIKS FOR AVSTAND: 80px logo + padding + 20-30px luft ned til innholdet */
+}
+
+/* Linker */
+.navLinks {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  transition: 120ms ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.navLink:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.navLinkActive {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: white;
+}
+
+/* Responsiv Navbar for små skjermer */
+@media (max-width: 850px) {
+  .compactMode .navInner {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .compactMode .navLinks {
+    justify-content: center;
+  }
+  .navPlaceholder.compact {
+    height: 160px; /* Må være høyere på mobil for å gi plass til kolonner */
+  }
+}
+
+/* --- ORIGINALE KOMPONENTER --- */
+.card {
   background: linear-gradient(180deg, var(--panel), rgba(255,255,255,0.03));
-  border:1px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius2);
   box-shadow: var(--shadow);
-  padding:16px;
+  padding: 16px;
 }
 
-.row{ display:flex; gap:16px; align-items:flex-start; }
-.col{ flex:1; min-width:0; }
+.row { display: flex; gap: 16px; align-items: flex-start; }
+.col { flex: 1; min-width: 0; }
 
-h1{ font-size:28px; margin:0 0 10px; }
-h2{ font-size:18px; margin:0 0 12px; color: var(--text); }
-p{ color: var(--muted); margin: 6px 0 0; }
-label{ font-size:13px; color: var(--muted); display:block; margin-bottom:6px; }
+h1 { font-size: 28px; margin: 0 0 10px; }
+h2 { font-size: 18px; margin: 0 0 12px; color: var(--text); }
+p { color: var(--muted); margin: 6px 0 0; }
+label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
 
-.hr{ height:1px; background: var(--border); margin: 12px 0; }
+.hr { height: 1px; background: var(--border); margin: 12px 0; }
 
-.btn{
-  border:1px solid var(--border);
+.btn {
+  border: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--text);
-  padding:10px 12px;
+  padding: 10px 12px;
   border-radius: 12px;
-  cursor:pointer;
+  cursor: pointer;
   transition: 120ms ease;
 }
-.btn:hover{ transform: translateY(-1px); background: color-mix(in srgb, var(--accent) 30%, transparent); }
-.btn:disabled{ opacity:0.5; cursor:not-allowed; transform:none; }
+.btn:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-.input, select, textarea{
-  width:100%;
+.input, select, textarea {
+  width: 100%;
   background: rgba(0,0,0,0.25);
-  border:1px solid var(--border);
+  border: 1px solid var(--border);
   color: var(--text);
-  padding:10px 10px;
+  padding: 10px 10px;
   border-radius: 12px;
-  outline:none;
+  outline: none;
 }
-.input:focus, select:focus, textarea:focus{
+.input:focus, select:focus, textarea:focus {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-.tableWrap{
-  overflow:auto;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-table{ width:100%; border-collapse: collapse; min-width: 900px; }
-th, td{ padding:10px 10px; border-bottom:1px solid var(--border); white-space: nowrap; }
+.tableWrap { overflow: auto; border-radius: 12px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; min-width: 900px; }
+th, td { padding: 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 
-th{
+th {
   position: sticky;
-  top:0;
+  top: 0;
   background: color-mix(in srgb, var(--bg) 40%, rgba(18,26,51,0.95));
   z-index: 1;
-  text-align:left;
+  text-align: left;
   color: var(--muted);
-  font-weight:600;
+  font-weight: 600;
 }
-
-td.sticky, th.sticky{
+td.sticky, th.sticky {
   position: sticky;
-  left:0;
-  z-index:2;
+  left: 0;
+  z-index: 2;
   background: color-mix(in srgb, var(--bg) 40%, rgba(18,26,51,0.95));
 }
 
-.badge{
-  display:inline-block;
-  padding:4px 8px;
-  border-radius: 999px;
-  border:1px solid var(--border);
-  color: var(--muted);
-  font-size:12px;
-}
+.badge { display: inline-block; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
 
 .cell { position: relative; padding-right: 18px; }
-.noteDot {
-  position: absolute;
-  top: 6px; right: 6px;
-  width: 7px; height: 7px;
-  border-radius: 999px;
-  background: var(--danger);
-  box-shadow: 0 0 0 2px rgba(11,16,32,0.6);
-}
+.noteDot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 999px; background: var(--danger); box-shadow: 0 0 0 2px rgba(11,16,32,0.6); }
 
-.tooltip {
-  position: absolute;
-  top: -6px;
-  right: 18px;
-  transform: translateY(-100%);
-  background: rgba(18,26,51,0.98);
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
-  color: rgba(233,237,255,0.95);
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  max-width: 260px;
-  white-space: normal;
-  display: none;
-  z-index: 5;
-}
+.tooltip { position: absolute; top: -6px; right: 18px; transform: translateY(-100%); background: rgba(18,26,51,0.98); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 24px rgba(0,0,0,0.35); color: rgba(233,237,255,0.95); padding: 8px 10px; border-radius: 10px; font-size: 12px; max-width: 260px; white-space: normal; display: none; z-index: 5; }
 .cell:hover .tooltip { display: block; }
 
-.separatorRow td {
-  background: rgba(0,0,0,0.18);
-  color: rgba(233,237,255,0.80);
-  font-weight: 700;
-}
-
+.separatorRow td { background: rgba(0,0,0,0.18); color: rgba(233,237,255,0.80); font-weight: 700; }
 .cellInput { width: 74px; text-align: center; padding: 6px 6px; }
 .cellDirty { outline: 2px solid rgba(255, 193, 7, 0.45); border-radius: 8px; }
 
 .sheetBar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .pill { font-size: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid rgba(255,255,255,0.10); }
 
-.btnPrimary{
+.btnPrimary {
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent2) 45%, transparent));
   border-color: rgba(255,255,255,0.16);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.btnPrimary:hover{
-  filter: brightness(1.05);
-}
+.btnPrimary:hover { filter: brightness(1.05); }
 
-.btnGhost{
-  background: rgba(255,255,255,0.04);
-}
-.btnDanger{
-  background: color-mix(in srgb, var(--danger) 22%, transparent);
-}
+.btnGhost { background: rgba(255,255,255,0.04); }
+.btnDanger { background: color-mix(in srgb, var(--danger) 22%, transparent); }
 
-/* --- Navbar --- */
-.navWrap{
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  backdrop-filter: blur(10px);
-}
+.tabs { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.tab { border: 1px solid var(--border); background: rgba(0,0,0,0.18); color: var(--text); padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+.tabActive { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 
-.navBar{
-  border-bottom: 1px solid var(--border);
-  background: rgba(11,16,32,0.65);
-}
+.modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: grid; place-items: center; z-index: 100; }
+.modalCard { width: 460px; max-width: calc(100vw - 24px); }
 
-.navInner{
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 0;
-}
+.podium { display: flex; gap: 12px; align-items: flex-end; }
+.podiumSlot { flex: 1; text-align: center; }
+.podiumLabel { margin-bottom: 8px; font-weight: 900; }
+.podiumBox { border-radius: 16px; border: 1px solid var(--border); background: rgba(0,0,0,0.18); display: grid; place-items: center; padding: 12px; }
 
-.brand{
-  font-weight: 900;
-  letter-spacing: .3px;
-}
+.grottaGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 10px; }
+.grottaCard { border: 1px solid var(--border); background: rgba(0,0,0,0.16); border-radius: 16px; padding: 14px; cursor: pointer; text-align: left; transition: 120ms ease; }
+.grottaCard:hover { transform: translateY(-1px); background: rgba(255,255,255,0.05); }
 
-.navLinks{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.navLink{
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.18);
-  color: var(--text);
-  transition: 120ms ease;
-}
-
-.navLink:hover{
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.06);
-}
-
-.navLinkActive{
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-}
-
-.tabs{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.tab{
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.18);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-}
-
-.tabActive{
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-}
-
-
-.modalOverlay{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.85);
-  display: grid;
-  place-items: center;
-  z-index: 100;
-}
-
-.modalCard{
-  width: 460px;
-  max-width: calc(100vw - 24px);
-}
-
-.podium{
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.podiumSlot{
-  flex: 1;
-  text-align: center;
-}
-
-.podiumLabel{
-  margin-bottom: 8px;
-  font-weight: 900;
-}
-
-.podiumBox{
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.18);
-  display: grid;
-  place-items: center;
-  padding: 12px;
-}
-
-.grottaGrid{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.grottaCard{
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,0.16);
-  border-radius: 16px;
-  padding: 14px;
-  cursor: pointer;
-  text-align: left;
-  transition: 120ms ease;
-}
-.grottaCard:hover{
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.05);
-}
-
-.cardCard {
-  padding: 12px;
-  text-align: left;
-  background: rgba(0,0,0,0.16);
-}
-.cardCard:hover {
-  transform: translateY(-2px);
-  transition: 120ms ease;
-}
-
-.cardCard img {
-  transition: transform 160ms ease;
-}
-
-.cardCard:hover img {
-  transform: scale(1.02);
-}
+.cardCard { padding: 12px; text-align: left; background: rgba(0,0,0,0.16); }
+.cardCard:hover { transform: translateY(-2px); transition: 120ms ease; }
+.cardCard img { transition: transform 160ms ease; }
+.cardCard:hover img { transform: scale(1.02); }

@@ -8,7 +8,6 @@ export function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Aktiver krymping når man scroller mer enn 50px
       setScrolled(window.scrollY > 50);
     };
 
@@ -16,14 +15,12 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Viser Hero-størrelse KUN hvis vi er på Home og er øverst på siden
-  const isHeroMode = isHome && !scrolled;
+  // LØSNINGEN: Er vi på forsiden, er den ALLTID i hero-modus (låst). 
+  // På andre sider bytter den til kompakt.
+  const isHeroMode = isHome; 
 
   return (
     <>
-      {/* PLACEHOLDER: Denne er avgjørende! 
-        Den sørger for at innholdet på de andre sidene ikke forsvinner opp under den tykkere navbaren. 
-      */}
       <div className={`navPlaceholder ${isHeroMode ? "hero" : "compact"}`} />
       
       <nav className={`navWrap ${isHeroMode ? "heroMode" : "compactMode"}`}>

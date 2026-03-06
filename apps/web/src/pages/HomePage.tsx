@@ -2,18 +2,24 @@ import { Link } from "react-router-dom";
 import { useEffect } from "react";
 
 export function HomePage() {
-  // Låser scrolling mens man er på forsiden
+  
   useEffect(() => {
+    // Vi låser scrolling på BÅDE body og html for å overstyre global.css
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    
     return () => {
+      // Setter tilbake til scroll når man forlater forsiden
+      document.documentElement.style.overflow = "scroll"; 
       document.body.style.overflow = "auto";
     };
   }, []);
 
   return (
     <div style={{ 
-      height: "70vh", // Tar hele skjermens høyde
-      width: "100%", // Tvinger full bredde for perfekt horisontal sentrering
+      // 330px er høyden på navPlaceholder.hero. Dette gjør at innholdet fyller skjermen 100% perfekt uten at man KAN scrolle.
+      height: "42vh", 
+      width: "100%", 
       display: "flex", 
       flexDirection: "column", 
       alignItems: "center", 
@@ -21,32 +27,27 @@ export function HomePage() {
       textAlign: "center",
       paddingLeft: "20px",
       paddingRight: "20px",
-      boxSizing: "border-box",
-      overflow: "hidden" 
+      boxSizing: "border-box"
     }}>
       
-      {/* Sentral Logo og Velkomst */}
+      {/* Velkomst */}
       <div style={{ maxWidth: "800px", width: "100%", marginBottom: "40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
         
-        {/* Logoen er lagt til her på selve siden */}
-        <img 
-          src="/logo-enkel.png" 
-          alt="Grotta Logo" 
-          style={{ 
-            width: "100%",
-            maxWidth: "320px", // Hindrer at logoen blir massiv på store skjermer, men krymper på mobil
-            marginBottom: "20px",
-            filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.5))"
-          }} 
-        />
+        <h1 style={{ 
+          fontSize: "3.5rem", 
+          fontWeight: 900,
+          margin: "0 0 10px 0",
+          letterSpacing: "-1px"
+        }}>
+          Grottechug
+        </h1>
 
         <p style={{ 
           fontSize: "1.2rem", 
           color: "var(--muted)", 
           lineHeight: "1.5",
           marginBottom: "30px",
-          marginTop: "10px",
-          maxWidth: "600px" // Gjør at tekstlinjene ikke blir for lange og uleselige
+          maxWidth: "600px" 
         }}>
           Den offisielle plattformen for chugge-statistikk, hjulet og de harde fakta fra Grotta.
         </p>
@@ -67,7 +68,7 @@ export function HomePage() {
         gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
         gap: "20px",
         width: "100%",
-        maxWidth: "1100px" // Samme maksimale bredde som .container
+        maxWidth: "1100px" 
       }}>
         <Link to="/wheel" className="card cardCard" style={{ padding: "20px", textDecoration: "none" }}>
           <h2 style={{ color: "var(--accent2)", fontSize: "1.3rem", marginBottom: "8px" }}>Hjulet</h2>

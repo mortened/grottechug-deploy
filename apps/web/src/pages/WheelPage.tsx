@@ -9,6 +9,7 @@ type WinnerStats = {
   isVirgin: boolean;
   lastTime: number | null;
   avgTime: number | null;
+  recordTime: number | null;
   projectedNext: number | null;
 };
 
@@ -39,7 +40,7 @@ export function WheelPage() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const [windowSize, setWindowSize] = useState({ w: 1000, h: 800 });
-  
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setWindowSize({ w: window.innerWidth, h: window.innerHeight });
@@ -81,6 +82,9 @@ export function WheelPage() {
       });
       return next;
     });
+  }
+  function fmtSeconds(v: number | null | undefined) {
+    return v == null ? "-" : `${v.toFixed(2)}s`;
   }
 
   useEffect(() => {
@@ -148,7 +152,7 @@ export function WheelPage() {
     const json = await res.json();
     const winnerId: string = json?.winner?.id;
     const winnerName: string = json?.winner?.name ?? "Ukjent";
-    
+
     if (!winnerId) {
       setSpinning(false);
       return;
@@ -158,40 +162,64 @@ export function WheelPage() {
     fetch(`/api/person/${winnerId}?semester=all`)
       .then(r => r.json())
       .then(data => {
-        const points: Point[] = data?.points || [];
+        const points: Point[] = [...(data?.points || [])];
         points.sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
-        
-        if (points.length === 0) {
-          setWinnerStats({ isVirgin: true, lastTime: null, avgTime: null, projectedNext: null });
-        } else {
-          const lastTime = points[points.length - 1].seconds;
-          const avgTime = data?.stats?.avg || null;
-          let projectedNext = null;
 
-          if (points.length >= 2) {
-            const n = points.length;
-            const sumX = points.map((_, i) => i).reduce((a, b) => a + b, 0);
-            const sumY = points.reduce((a, pt) => a + pt.seconds, 0);
-            const sumXY = points.map((pt, i) => i * pt.seconds).reduce((a, b) => a + b, 0);
-            const sumXX = points.map((_, i) => i * i).reduce((a, b) => a + b, 0);
-            const denom = n * sumXX - sumX * sumX;
-            const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
-            const b = (sumY - m * sumX) / n;
-            projectedNext = Math.max(0, m * n + b);
-          }
-          setWinnerStats({ isVirgin: false, lastTime, avgTime, projectedNext });
+        if (points.length === 0) {
+          setWinnerStats({
+            isVirgin: true,
+            lastTime: null,
+            avgTime: null,
+            recordTime: null,
+            projectedNext: null
+          });
+          return;
         }
-      }).catch(e => console.error(e));
+
+        const lastTime = points[points.length - 1].seconds;
+        const avgTime = data?.stats?.avg ?? null;
+
+        // Velg "rekord" som best clean hvis den finnes, ellers vanlig best
+        const recordTime = data?.stats?.bestClean ?? data?.stats?.best ?? null;
+
+        let projectedNext: number | null = null;
+
+        if (points.length >= 2) {
+          const n = points.length;
+          const xs = points.map((_, i) => i);
+          const ys = points.map(pt => pt.seconds);
+
+          const sumX = xs.reduce((a, b) => a + b, 0);
+          const sumY = ys.reduce((a, b) => a + b, 0);
+          const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
+          const sumXX = xs.reduce((a, x) => a + x * x, 0);
+
+          const denom = n * sumXX - sumX * sumX;
+          const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+          const b = (sumY - m * sumX) / n;
+
+          projectedNext = Math.max(0, m * n + b);
+        }
+
+        setWinnerStats({
+          isVirgin: false,
+          lastTime,
+          avgTime,
+          recordTime,
+          projectedNext
+        });
+      })
+      .catch(e => console.error(e));
 
     const idx = currentNames.findIndex(name => name === winnerName);
     const n = currentNames.length;
     const step = (Math.PI * 2) / n;
     const targetLocalAngle = (idx * step) + (step / 2);
     const baseAngle = (Math.PI * 2) - targetLocalAngle;
-    
+
     let nextAngle = baseAngle + Math.floor(angle / (Math.PI * 2)) * Math.PI * 2;
     if (nextAngle < angle) nextAngle += Math.PI * 2;
-    const endAngle = nextAngle + (Math.PI * 2 * 10); // 10 runder
+    const endAngle = nextAngle + (Math.PI * 2 * 10);
     const startAngle = angle;
     const duration = 5000;
     const t0 = performance.now();
@@ -200,8 +228,11 @@ export function WheelPage() {
       const t = Math.min(1, (now - t0) / duration);
       const eased = 1 - Math.pow(1 - t, 5);
       setAngle(startAngle + (endAngle - startAngle) * eased);
-      if (t < 1) { requestAnimationFrame(anim); return; }
-      
+      if (t < 1) {
+        requestAnimationFrame(anim);
+        return;
+      }
+
       setAngle(endAngle % (Math.PI * 2));
       setWinner(winnerName);
       setWinnerImage(candidateList.find(p => p.id === winnerId)?.imageUrl || null);
@@ -209,6 +240,7 @@ export function WheelPage() {
       fireConfetti();
       setSpinning(false);
     }
+
     requestAnimationFrame(anim);
   }
 
@@ -276,10 +308,10 @@ export function WheelPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <h2 style={{ margin: 0, fontSize: 18 }}>Deltakere</h2>
             <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14 }}>
-              <input 
-                type="checkbox" 
-                checked={allRegularsSelected} 
-                onChange={(e) => toggleAllRegulars(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={allRegularsSelected}
+                onChange={(e) => toggleAllRegulars(e.target.checked)}
               />
               <b>Marker alle faste</b>
             </label>
@@ -320,14 +352,14 @@ export function WheelPage() {
               </>
             )}
           </div>
-          
+
           <div className="hr" />
           <div style={{ color: "var(--muted)", fontSize: 13 }}>
             Kandidater i hjulet: <b style={{ color: "var(--text)" }}>{candidateIds.length}</b>
           </div>
         </div>
 
-        <div 
+        <div
           className="col card"
           style={{
             position: isExpanded ? "fixed" : "relative",
@@ -345,7 +377,7 @@ export function WheelPage() {
         >
           <button
             onClick={(e) => {
-              e.stopPropagation(); 
+              e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
             title={isExpanded ? "Lukk fullskjerm" : "Fullskjerm"}
@@ -379,7 +411,6 @@ export function WheelPage() {
           </button>
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
-            
             {/* Vinner-banner og Stats */}
             <div style={{ minHeight: 110, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
               {winner && !spinning ? (
@@ -388,22 +419,23 @@ export function WheelPage() {
                     🎉 {winner} 🎉
                   </div>
                   {winnerStats && (
-                    <div style={{ 
-                      marginTop: 8, 
-                      fontSize: isExpanded ? "1.1rem" : "0.95rem", 
-                      background: "rgba(0,0,0,0.3)", 
-                      padding: "6px 16px", 
-                      borderRadius: 30 
-                    }}>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: isExpanded ? "1.1rem" : "0.95rem",
+                        background: "rgba(0,0,0,0.3)",
+                        padding: "8px 18px",
+                        borderRadius: 30
+                      }}
+                    >
                       {winnerStats.isVirgin ? (
                         <span>Lykke til med jomfruchuggen! 🍻</span>
                       ) : (
-                        <div style={{ display: "flex", gap: 15 }}>
-                          <span>Forrige: <b style={{color: "var(--accent)"}}>{winnerStats.lastTime?.toFixed(2)}s</b></span>
-                          <span>Snitt: <b style={{color: "var(--accent)"}}>{winnerStats.avgTime?.toFixed(2)}s</b></span>
-                          {winnerStats.projectedNext && (
-                            <span>Projisert: <b style={{color: "var(--accent2)"}}>{winnerStats.projectedNext.toFixed(2)}s</b></span>
-                          )}
+                        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", justifyContent: "center" }}>
+                          <span>Forrige: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.lastTime)}</b></span>
+                          <span>Snitt: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.avgTime)}</b></span>
+                          <span>Rekord: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.recordTime)}</b></span>
+                          <span>Projisert: <b style={{ color: "var(--accent2)" }}>{fmtSeconds(winnerStats.projectedNext)}</b></span>
                         </div>
                       )}
                     </div>
@@ -416,25 +448,27 @@ export function WheelPage() {
               )}
             </div>
 
-            <div 
+            <div
               onClick={() => !spinning && spin()}
-              style={{ 
-                cursor: spinning ? "default" : "pointer", 
+              style={{
+                cursor: spinning ? "default" : "pointer",
                 position: "relative",
                 transform: spinning ? "scale(1)" : "scale(1.02)",
                 transition: "transform 0.2s"
               }}
             >
               {winner && !spinning && (
-                <div style={{ 
-                  position: "absolute", 
-                  inset: 0, 
-                  borderRadius: "50%", 
-                  zIndex: 10, 
-                  overflow: "hidden", 
-                  border: "6px solid var(--accent)",
-                  background: "var(--bg)"
-                }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    zIndex: 10,
+                    overflow: "hidden",
+                    border: "6px solid var(--accent)",
+                    background: "var(--bg)"
+                  }}
+                >
                   {winnerImage ? (
                     <img src={winnerImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (

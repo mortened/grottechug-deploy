@@ -13,7 +13,6 @@ leaderboardRouter.get("/", async (req, res) => {
   });
   const sessionIds = sessions.map(s => s.id);
 
-  // Hvis ingen sessions i semesteret, returner tomt
   if (!sessionIds.length) {
     return res.json({ semester, rows: [] });
   }
@@ -21,8 +20,13 @@ leaderboardRouter.get("/", async (req, res) => {
   const attempts = await prisma.attempt.findMany({
     where: {
       sessionId: { in: sessionIds },
-      // "clean" = ingen anmerkning
-      OR: [{ note: null }, { note: "" }]
+      // NY LOGIKK: "clean" er nå enten ingenting, "mm-chug" eller "mm"
+      OR: [
+        { note: null },
+        { note: "" },
+        { note: "mm-chug" },
+        { note: "mm" }
+      ]
     },
     include: {
       participant: { select: { id: true, name: true, isRegular: true, imageUrl: true } },
@@ -30,7 +34,6 @@ leaderboardRouter.get("/", async (req, res) => {
     }
   });
 
-  // best clean per participant
   const bestBy: Record<
     string,
     {

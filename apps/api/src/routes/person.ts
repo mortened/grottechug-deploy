@@ -33,7 +33,14 @@ personRouter.get("/:id", async (req, res) => {
   const best = times.length ? Math.min(...times) : null;
   const avg = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
 
-  const cleanTimes = points.filter(x => !x.note).map(x => x.seconds);
+  // NY LOGIKK: Inkluderer mm-chug og mm i beregningen for "bestClean"
+  const cleanTimes = points
+    .filter(x => {
+      const n = x.note?.toLowerCase();
+      return !n || n === "" || n === "mm-chug" || n === "mm";
+    })
+    .map(x => x.seconds);
+    
   const bestClean = cleanTimes.length ? Math.min(...cleanTimes) : null;
 
   res.json({

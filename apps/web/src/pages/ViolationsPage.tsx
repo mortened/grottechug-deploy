@@ -44,10 +44,10 @@ function fmtDate(iso: string) {
 
 export function ViolationsPage() {
   const nav = useNavigate();
-  const [semester, setSemester] = useState<Semester>("2026V");
+  const [semester, setSemester] = useState<Semester>("all");
   const [detail, setDetail] = useState<DetailResp | null>(null);
   const [violations, setViolations] = useState<ViolationEntry[]>([]);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showGuests, setShowGuests] = useState(false);
 

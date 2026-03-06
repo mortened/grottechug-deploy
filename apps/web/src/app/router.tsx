@@ -23,7 +23,7 @@ export const router = createBrowserRouter([
       { path: "person/:id", element: <PersonPage /> },
       { path: "stats", element: <StatsDashboardPage /> },
       { path: "grotta", element: <GrottaPage /> },
-      { path: "kryssliste", element: <ViolationsPage /> },
+      { path: "violations", element: <ViolationsPage /> },
     ]
   }
 ]);

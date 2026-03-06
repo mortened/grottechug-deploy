@@ -8,6 +8,39 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const ALLOWED = new Set(["2026V", "2025H"]);
 
+function parseViolationCodes(note: string | null): string[] {
+  if (!note) return [];
+  const codes: string[] = [];
+  if (/\bmm\b/i.test(note)) codes.push("MM");
+  if (/\bvw\b/i.test(note)) codes.push("VW");
+  if (/\bw\b/i.test(note)) codes.push("W");
+  if (/\bp\b/i.test(note)) codes.push("P");
+  if (/\bdns\b/i.test(note)) codes.push("DNS");
+  if (/\b(dnf|tobias)\b/i.test(note)) codes.push("DNF");
+  if (/frav[æe]r|\babsence\b/i.test(note)) codes.push("ABSENCE");
+  if (/\b(vomit|oppkast)\b/i.test(note)) codes.push("VOMIT");
+  if (/\bkpr\b/i.test(note)) codes.push("KPR");
+  return codes;
+}
+
+async function syncViolations(
+  participantId: string,
+  sessionId: string,
+  note: string | null,
+  ruleMap: Record<string, { code: string; crosses: number }>
+) {
+  const codes = parseViolationCodes(note);
+  await prisma.violation.deleteMany({ where: { participantId, sessionId } });
+  for (const code of codes) {
+    const rule = ruleMap[code];
+    if (rule) {
+      await prisma.violation.create({
+        data: { participantId, sessionId, ruleCode: rule.code, crosses: rule.crosses, reason: note }
+      });
+    }
+  }
+}
+
 function normalizeName(raw: unknown): string | null {
   if (raw == null) return null;
   let s = String(raw).trim();
@@ -33,7 +66,7 @@ function inferYear(sheetName: string): number | undefined {
 function parseDateHeader(cell: unknown, fallbackYear?: number): Date | null {
   // tekst dd.mm eller dd.mm.yyyy
   if (typeof cell === "string") {
-    const s = cell.trim();
+    const s = cell.trim().replace(/\s*\(.*?\)\s*$/, "").trim();
     const m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/);
     if (!m) return null;
     const day = Number(m[1]);
@@ -77,6 +110,9 @@ function findHeaderRow(rows: unknown[][]): number {
 
 importRouter.post("/excel", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Missing file" });
+
+  const rules = await prisma.rule.findMany();
+  const ruleMap = Object.fromEntries(rules.map(r => [r.code, r]));
 
   const wb = XLSX.read(req.file.buffer, { type: "buffer" });
 
@@ -128,7 +164,6 @@ importRouter.post("/excel", upload.single("file"), async (req, res) => {
       const noteCol = nextHeader.includes("anmerk") ? ci + 1 : null;
       dateCols.push({ dateCol: ci, noteCol, date });
     }
-
     for (let ri = hIdx + 1; ri < rows.length; ri++) {
       const row = rows[ri] as unknown[];
       const name = normalizeName(row[colName]);
@@ -156,9 +191,11 @@ importRouter.post("/excel", upload.single("file"), async (req, res) => {
 
       for (const dc of dateCols) {
         const seconds = toSeconds(row[dc.dateCol]);
-        if (seconds == null) continue;
-
         const note = dc.noteCol != null ? toNote(row[dc.noteCol]) : null;
+        const violationCodes = parseViolationCodes(note);
+
+        // Skip rows with neither a time nor any violations (e.g. empty cells)
+        if (seconds == null && violationCodes.length === 0) continue;
 
         const session = await prisma.session.upsert({
           where: { date: dc.date },
@@ -166,14 +203,18 @@ importRouter.post("/excel", upload.single("file"), async (req, res) => {
           create: { date: dc.date, semester: sheetName }
         });
 
-        // upsert cell (unique constraint)
-        await prisma.attempt.upsert({
-          where: { participantId_sessionId: { participantId: participant.id, sessionId: session.id } },
-          update: { seconds, note },
-          create: { participantId: participant.id, sessionId: session.id, seconds, note }
-        });
+        // Only create an attempt if there is a time
+        if (seconds != null) {
+          await prisma.attempt.upsert({
+            where: { participantId_sessionId: { participantId: participant.id, sessionId: session.id } },
+            update: { seconds, note },
+            create: { participantId: participant.id, sessionId: session.id, seconds, note }
+          });
+          importedAttempts++;
+        }
 
-        importedAttempts++;
+        // Always sync violations from note (covers Fravær and other note-only rows)
+        await syncViolations(participant.id, session.id, note, ruleMap);
       }
     }
   }

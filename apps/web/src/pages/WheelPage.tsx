@@ -178,8 +178,6 @@ export function WheelPage() {
 
         const lastTime = points[points.length - 1].seconds;
         const avgTime = data?.stats?.avg ?? null;
-
-        // Velg "rekord" som best clean hvis den finnes, ellers vanlig best
         const recordTime = data?.stats?.bestClean ?? data?.stats?.best ?? null;
 
         let projectedNext: number | null = null;
@@ -214,21 +212,42 @@ export function WheelPage() {
     const idx = currentNames.findIndex(name => name === winnerName);
     const n = currentNames.length;
     const step = (Math.PI * 2) / n;
-    const targetLocalAngle = (idx * step) + (step / 2);
+    
+    // Tving pekeren til å lande farlig nærme kanten til forrige/neste person ("Near Miss")
+    const direction = Math.random() > 0.5 ? 1 : -1; 
+    const nearMissOffset = (Math.random() * 0.1 + 0.35) * direction; 
+    
+    const targetLocalAngle = (idx * step) + (step / 2) + (nearMissOffset * step);
     const baseAngle = (Math.PI * 2) - targetLocalAngle;
 
     let nextAngle = baseAngle + Math.floor(angle / (Math.PI * 2)) * Math.PI * 2;
     if (nextAngle < angle) nextAngle += Math.PI * 2;
-    const endAngle = nextAngle + (Math.PI * 2 * 10);
+    
+    // Antall runder før den stopper
+    const extraSpins = 10 + Math.floor(Math.random() * 3); 
+    const endAngle = nextAngle + (Math.PI * 2 * extraSpins);
+    
     const startAngle = angle;
-    const duration = 5000;
+    const totalDist = endAngle - startAngle;
+    
+    // Vi setter en lang animasjonstid (8-9 sekunder)
+    const duration = 8000 + Math.random() * 1000; 
     const t0 = performance.now();
 
     function anim(now: number) {
       const t = Math.min(1, (now - t0) / duration);
-      const eased = 1 - Math.pow(1 - t, 5);
-      setAngle(startAngle + (endAngle - startAngle) * eased);
-      if (t < 1) {
+      
+      // HØY POTENS (7) gir veldig slak kurve = ekstremt treg fart på slutten
+      const eased = 1 - Math.pow(1 - t, 7); 
+      
+      setAngle(startAngle + (totalDist * eased));
+      
+      // Regn ut hvor mye av vinkelen som faktisk gjenstår
+      const remainingAngle = totalDist * (1 - eased);
+      
+      // CUT-OFF TRIKSET: Hvis hjulet har under 0.003 radianer igjen å spinne (ca 0.15 grader)
+      // er det i praksis usynlig at det beveger seg. Da kutter vi ventetiden og kårer vinneren!
+      if (t < 1 && remainingAngle > 0.003) {
         requestAnimationFrame(anim);
         return;
       }
@@ -271,7 +290,7 @@ export function WheelPage() {
     });
   }
 
-  const wheelSize = isExpanded ? Math.min(windowSize.w * 0.9, windowSize.h * 0.75, 850) : 360;
+  const wheelSize = isExpanded ? Math.min(windowSize.w * 0.95, windowSize.h * 0.8, 850) : 360;
 
   return (
     <div>

@@ -452,8 +452,8 @@ export function WheelPage() {
                       ) : (
                         <div style={{ display: "flex", gap: 18, flexWrap: "wrap", justifyContent: "center" }}>
                           <span>Forrige: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.lastTime)}</b></span>
-                          <span>Snitt: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.avgTime)}</b></span>
-                          <span>Rekord: <b style={{ color: "var(--accent)" }}>{fmtSeconds(winnerStats.recordTime)}</b></span>
+                          <span>Snitt: <b style={{ color: "var(--accent3)" }}>{fmtSeconds(winnerStats.avgTime)}</b></span>
+                          <span>Rekord: <b style={{ color: "var(--accent4)" }}>{fmtSeconds(winnerStats.recordTime)}</b></span>
                           <span>Projisert: <b style={{ color: "var(--accent2)" }}>{fmtSeconds(winnerStats.projectedNext)}</b></span>
                         </div>
                       )}

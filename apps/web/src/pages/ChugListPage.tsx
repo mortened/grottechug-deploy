@@ -22,6 +22,16 @@ type TableResponse = {
   cells: Record<string, Record<string, Cell>>;
 };
 
+type ViolationEntry = {
+  id: string;
+  participantId: string;
+  sessionId: string;
+  ruleCode: string;
+  crosses: number;
+};
+
+const PERF_CODES = ["MM", "W", "VW", "P", "DNS", "DNF", "VOMIT", "KPR"] as const;
+
 type SortKey =
   | { kind: "none" }
   | { kind: "best" }
@@ -79,6 +89,7 @@ export function ChugListPage() {
 
   const [draftSeconds, setDraftSeconds] = useState<Record<string, string>>({});
   const [draftNote, setDraftNote] = useState<Record<string, string>>({});
+  const [draftViolations, setDraftViolations] = useState<Record<string, string[]>>({});
 
   const [newDayOpen, setNewDayOpen] = useState(false);
   const [newDayDate, setNewDayDate] = useState(() => new Date().toISOString().slice(0, 10)); // yyyy-mm-dd
@@ -165,6 +176,30 @@ export function ChugListPage() {
     return data.columns.find(c => c.sessionId === editSessionId) ?? null;
   }, [data, editSessionId]);
 
+  const projectedTimes = useMemo(() => {
+    if (!data) return {} as Record<string, number | null>;
+    const result: Record<string, number | null> = {};
+    for (const r of data.rows) {
+      const pts: number[] = [];
+      for (const col of data.columns) {
+        const cell = data.cells?.[r.participantId]?.[col.sessionId];
+        if (cell?.seconds != null) pts.push(cell.seconds);
+      }
+      if (pts.length < 2) { result[r.participantId] = null; continue; }
+      const n = pts.length;
+      const xs = pts.map((_, i) => i);
+      const sumX = xs.reduce((a, b) => a + b, 0);
+      const sumY = pts.reduce((a, b) => a + b, 0);
+      const sumXY = xs.reduce((a, x, i) => a + x * pts[i], 0);
+      const sumXX = xs.reduce((a, x) => a + x * x, 0);
+      const denom = n * sumXX - sumX * sumX;
+      const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+      const b = (sumY - m * sumX) / n;
+      result[r.participantId] = Math.max(0, m * n + b);
+    }
+    return result;
+  }, [data]);
+
   async function openEditor(sessionId: string) {
     if (!data) return;
 
@@ -188,6 +223,16 @@ export function ChugListPage() {
     const sessions = await sRes.json() as Array<{ id: string; note?: string|null }>;
     const found = sessions.find(s => s.id === sessionId);
     setSessionNote(found?.note ?? "");
+
+    const vRes = await fetch(`/api/violations?sessionId=${sessionId}`);
+    const sessionViolations = await vRes.json() as ViolationEntry[];
+    const nextViolations: Record<string, string[]> = {};
+    for (const r of data.rows) {
+      nextViolations[r.participantId] = sessionViolations
+        .filter(v => v.participantId === r.participantId)
+        .map(v => v.ruleCode);
+    }
+    setDraftViolations(nextViolations);
 
     const first = data.rows.find(x => x.isRegular) ?? data.rows[0];
     if (first) setTimeout(() => inputRefs.current[first.participantId]?.focus(), 0);
@@ -220,10 +265,14 @@ export function ChugListPage() {
       if (sessionId !== sid) continue;
 
       const secStr = (draftSeconds[participantId] ?? "").trim();
-      if (!secStr) continue;
+      const violations = draftViolations[participantId] ?? [];
+      const seconds = secStr ? parseSeconds(secStr) : null;
+      const hasValidTime = seconds !== null && Number.isFinite(seconds) && seconds > 0;
 
-      const seconds = parseSeconds(secStr);
-      if (!Number.isFinite(seconds) || seconds <= 0) continue;
+      // Skip if no time AND no violations
+      if (!hasValidTime && violations.length === 0) continue;
+      // Skip if time was entered but is invalid
+      if (secStr && !hasValidTime) continue;
 
       const note = (draftNote[participantId] ?? "").trim();
 
@@ -233,8 +282,9 @@ export function ChugListPage() {
         body: JSON.stringify({
           participantId,
           sessionId: sid,
-          seconds,
-          note: note ? note : null
+          seconds: hasValidTime ? seconds : null,
+          note: note ? note : null,
+          violations
         })
       });
     }
@@ -428,65 +478,129 @@ export function ChugListPage() {
 
           <div className="hr" />
 
-          <div style={{ display: "grid", gap: 8 }}>
-            {data.rows.map((r, idx) => (
-              <div
-                key={r.participantId}
-                style={{ display: "grid", gridTemplateColumns: "220px 110px 1fr", gap: 10, alignItems: "center" }}
-              >
-                <button className="btn" style={{ justifySelf: "start" }} onClick={() => nav(`/person/${r.participantId}`)}>
-                  {r.name}{r.isRegular ? "" : " (gjest)"}
-                </button>
+          <div style={{ display: "grid", gap: 10 }}>
+            {data.rows.map((r, idx) => {
+              const activeViolations = draftViolations[r.participantId] ?? [];
+              const isDirty = dirtyCells.has(cellKey(r.participantId, editSession.sessionId));
+              return (
+                <div key={r.participantId} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <button
+                    className="btn"
+                    style={{ minWidth: 190 }}
+                    onClick={() => nav(`/person/${r.participantId}`)}
+                  >
+                    {r.name}{r.isRegular ? "" : " (gjest)"}
+                  </button>
 
-                <input
-                  ref={el => { inputRefs.current[r.participantId] = el; }}
-                  className={`input cellInput ${dirtyCells.has(cellKey(r.participantId, editSession.sessionId)) ? "cellDirty" : ""}`}
-                  placeholder="12.34"
-                  value={draftSeconds[r.participantId] ?? ""}
-                  onChange={e => {
-                    setDraftSeconds(prev => ({ ...prev, [r.participantId]: e.target.value }));
-                    markDirty(r.participantId, editSession.sessionId);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setEditSessionId(null);
-                      setDirtyCells(new Set());
-                      setDirtySessionNote(false);
-                      return;
-                    }
+                  <input
+                    ref={el => { inputRefs.current[r.participantId] = el; }}
+                    className={`input cellInput ${isDirty ? "cellDirty" : ""}`}
+                    placeholder={projectedTimes[r.participantId] != null ? projectedTimes[r.participantId]!.toFixed(2) : "12.34"}
+                    value={draftSeconds[r.participantId] ?? ""}
+                    onChange={e => {
+                      setDraftSeconds(prev => ({ ...prev, [r.participantId]: e.target.value }));
+                      markDirty(r.participantId, editSession.sessionId);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Escape") {
+                        setEditSessionId(null);
+                        setDirtyCells(new Set());
+                        setDirtySessionNote(false);
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (e.shiftKey) focusByIndex(idx - 1);
+                        else focusByIndex(idx + 1);
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        focusByIndex(idx + 1);
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        focusByIndex(idx - 1);
+                      }
+                    }}
+                  />
 
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (e.shiftKey) focusByIndex(idx - 1);
-                      else focusByIndex(idx + 1);
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      focusByIndex(idx + 1);
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      focusByIndex(idx - 1);
-                    }
-                  }}
-                />
+                  {PERF_CODES.map(code => {
+                    const active = activeViolations.includes(code);
+                    return (
+                      <button
+                        key={code}
+                        className="btn"
+                        style={{
+                          padding: "5px 9px",
+                          fontSize: 11,
+                          background: active ? "rgba(239,68,68,0.22)" : "rgba(0,0,0,0.18)",
+                          borderColor: active ? "rgba(239,68,68,0.5)" : undefined,
+                          color: active ? "#ef4444" : "var(--muted)"
+                        }}
+                        onClick={() => {
+                          setDraftViolations(prev => {
+                            const cur = prev[r.participantId] ?? [];
+                            const next = cur.includes(code)
+                              ? cur.filter(c => c !== code)
+                              : [...cur, code];
+                            return { ...prev, [r.participantId]: next };
+                          });
+                          markDirty(r.participantId, editSession.sessionId);
+                        }}
+                      >
+                        {code}
+                      </button>
+                    );
+                  })}
 
-                <input
-                  className="input"
-                  placeholder="anmerkning (mm/w/vw/p/…)"
-                  value={draftNote[r.participantId] ?? ""}
-                  onChange={e => {
-                    setDraftNote(prev => ({ ...prev, [r.participantId]: e.target.value }));
-                    markDirty(r.participantId, editSession.sessionId);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (e.shiftKey) focusByIndex(idx - 1);
-                      else focusByIndex(idx + 1);
-                    }
-                  }}
-                />
-              </div>
-            ))}
+                  <span style={{ color: "var(--border)", userSelect: "none" }}>|</span>
+
+                  {(() => {
+                    const active = activeViolations.includes("ABSENCE");
+                    return (
+                      <button
+                        className="btn"
+                        style={{
+                          padding: "5px 9px",
+                          fontSize: 11,
+                          background: active ? "rgba(234,179,8,0.25)" : "rgba(234,179,8,0.07)",
+                          borderColor: active ? "rgba(234,179,8,0.6)" : "rgba(234,179,8,0.3)",
+                          color: active ? "#eab308" : "rgba(234,179,8,0.6)"
+                        }}
+                        onClick={() => {
+                          setDraftViolations(prev => {
+                            const cur = prev[r.participantId] ?? [];
+                            const next = cur.includes("ABSENCE")
+                              ? cur.filter(c => c !== "ABSENCE")
+                              : [...cur, "ABSENCE"];
+                            return { ...prev, [r.participantId]: next };
+                          });
+                          markDirty(r.participantId, editSession.sessionId);
+                        }}
+                      >
+                        ABSENCE
+                      </button>
+                    );
+                  })()}
+
+                  <input
+                    className="input"
+                    style={{ flex: 1, minWidth: 120 }}
+                    placeholder="notat (valgfritt)"
+                    value={draftNote[r.participantId] ?? ""}
+                    onChange={e => {
+                      setDraftNote(prev => ({ ...prev, [r.participantId]: e.target.value }));
+                      markDirty(r.participantId, editSession.sessionId);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (e.shiftKey) focusByIndex(idx - 1);
+                        else focusByIndex(idx + 1);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ marginTop: 10, color: "var(--muted)", fontSize: 13 }}>

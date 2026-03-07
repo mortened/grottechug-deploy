@@ -44,6 +44,9 @@ export function Navbar() {
               <NavLink to="/chug" className={({ isActive }) => `navLink ${isActive ? "navLinkActive" : ""}`}>
                 Chuggelista
               </NavLink>
+              <NavLink to="/violations" className={({ isActive }) => `navLink ${isActive ? "navLinkActive" : ""}`}>
+                Kryssliste
+              </NavLink>
               <NavLink to="/rules" className={({ isActive }) => `navLink ${isActive ? "navLinkActive" : ""}`}>
                 Regler
               </NavLink>
@@ -57,6 +60,7 @@ export function Navbar() {
                 Grotta
               </NavLink>
             </div>
+            
             
           </div>
         </div>

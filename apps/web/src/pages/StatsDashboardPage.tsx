@@ -40,6 +40,12 @@ type ParticipantStat = {
   noteCount: number;
 };
 
+type ViolationEntry = {
+  participantId: string;
+  ruleCode: string;
+  dateISO: string;
+};
+
 function fmtDate(isoOrDate: string) {
   const d = new Date(isoOrDate);
   if (isNaN(d.getTime())) return isoOrDate;
@@ -70,15 +76,18 @@ export function StatsDashboardPage() {
 
   // NY: State for å vise/skjule gjester med >= 4 chugs i scatterplottet
   const [showScatterGuests, setShowScatterGuests] = useState(false);
+  const [violations, setViolations] = useState<ViolationEntry[]>([]);
 
   useEffect(() => {
     (async () => {
-      const [resA, resT] = await Promise.all([
+      const [resA, resT, resV] = await Promise.all([
         fetch(`/api/analytics?semester=${semester}`),
-        fetch(`/api/stats/table?semester=${semester}`)
+        fetch(`/api/stats/table?semester=${semester}`),
+        fetch(`/api/violations?semester=${semester}`)
       ]);
       setData(await resA.json());
       setTableData(await resT.json());
+      setViolations(await resV.json());
     })();
   }, [semester]);
 
@@ -109,11 +118,17 @@ export function StatsDashboardPage() {
 
   // --- FLETT SAMMEN API-DATA OG RASKEST/TREGEST FRA TABELL ---
   const timeSeriesData = useMemo(() => {
-    const base = data?.timeSeries.map(x => ({
-      ...x,
-      dateFormatted: fmtDate(x.dateISO),
-      wetPct: x.wetRate * 100 // Denne er riktig fra API-et!
-    })) || [];
+    const base = data?.timeSeries.map(x => {
+      const wetCount = violations.filter(
+        v => v.dateISO.slice(0, 10) === x.dateISO.slice(0, 10) &&
+          (v.ruleCode === "W" || v.ruleCode === "VW" || v.ruleCode === "MM")
+      ).length;
+      return {
+        ...x,
+        dateFormatted: fmtDate(x.dateISO),
+        wetPct: x.attempts > 0 ? (wetCount / x.attempts) * 100 : 0,
+      };
+    }) || [];
 
     if (!tableData) return base;
 
@@ -149,44 +164,36 @@ export function StatsDashboardPage() {
         slowestPerson
       };
     });
-  }, [data, tableData]);
+  }, [data, tableData, violations]);
 
-  const normNotes: Record<string, number> = {};
-  if (data?.noteBreakdown) {
-    Object.entries(data.noteBreakdown).forEach(([k, v]) => {
-      if (v) {
-        const lowerKey = k.toLowerCase();
-        normNotes[lowerKey] = (normNotes[lowerKey] || 0) + v;
-      }
-    });
-  }
+  const VIOLATION_BAR_COLORS: Record<string, string> = {
+    MM: "#10b981", W: "#3b82f6", VW: "#6366f1", P: "#ef4444",
+    DNS: "#f59e0b", DNF: "#f97316", VOMIT: "#ec4899", KPR: "#8b5cf6",
+    ABSENCE: "#94a3b8"
+  };
+  const VIOLATION_BAR_LABELS: Record<string, string> = {
+    MM: "MM", W: "Wet (W)", VW: "Very Wet (VW)", P: "Pause (P)",
+    DNS: "DNS", DNF: "DNF", VOMIT: "Oppkast", KPR: "KPR", ABSENCE: "Fravær"
+  };
+  const violationCounts: Record<string, number> = {};
+  violations.forEach(v => {
+    violationCounts[v.ruleCode] = (violationCounts[v.ruleCode] || 0) + 1;
+  });
+  const noteBars = Object.entries(violationCounts)
+    .filter(([_, count]) => count > 0)
+    .map(([code, count]) => ({
+      type: code,
+      label: VIOLATION_BAR_LABELS[code] || code,
+      count,
+      color: VIOLATION_BAR_COLORS[code] || "#888"
+    }))
+    .sort((a, b) => b.count - a.count);
 
-  const noteBars = [
-    { type: "mm", label: "Mildly Moist (mm)", count: normNotes["mm"] || 0, color: "#10b981" },
-    { type: "p-chug", label: "P-Chug", count: normNotes["p-chug"] || 0, color: "#f59e0b" },
-    { type: "w", label: "Wet (w)", count: normNotes["w"] || 0, color: "#3b82f6" },
-    { type: "vw", label: "Very Wet (vw)", count: normNotes["vw"] || 0, color: "#6366f1" },
-    { type: "ww", label: "Wasted (ww)", count: normNotes["ww"] || 0, color: "#8b5cf6" },
-    { type: "tobias-chug", label: "Tobias-Chug", count: normNotes["tobias-chug"] || 0, color: "#ec4899" },
-    { type: "p", label: "Pause (p)", count: normNotes["p"] || 0, color: "#ef4444" }
-  ].filter(n => n.count > 0);
-
-  // --- NY, KORREKT UTTREGNING FOR TOTAL WET-RATE ---
   const overallWetRate = useMemo(() => {
-    if (!data?.timeSeries?.length) return 0;
-    
-    let totalWets = 0;
-    let totalAtt = 0;
-
-    data.timeSeries.forEach(day => {
-      if (day.attempts > 0) {
-        totalAtt += day.attempts;
-        totalWets += (day.wetRate * day.attempts);
-      }
-    });
-
-    return totalAtt > 0 ? (totalWets / totalAtt) * 100 : 0;
-  }, [data]);
+    if (!data?.overview?.attempts) return 0;
+    const wetCount = violations.filter(v => v.ruleCode === "W" || v.ruleCode === "VW" || v.ruleCode === "MM").length;
+    return (wetCount / data.overview.attempts) * 100;
+  }, [violations, data]);
 
   const chugsPerSession = data?.overview.sessions ? (data.overview.attempts / data.overview.sessions) : 0;
 
@@ -215,10 +222,12 @@ export function StatsDashboardPage() {
 
   const noteRateData = validParticipants
     .filter(p => p.attempts >= 3)
-    .map(p => ({
-      name: p.name,
-      notePct: (p.noteCount / p.attempts) * 100
-    }))
+    .map(p => {
+      const vCount = violations.filter(
+        v => v.participantId === p.participantId && v.ruleCode !== "ABSENCE"
+      ).length;
+      return { name: p.name, notePct: (vCount / p.attempts) * 100 };
+    })
     .sort((a, b) => b.notePct - a.notePct)
     .slice(0, 5);
 
@@ -453,7 +462,7 @@ export function StatsDashboardPage() {
           <div className="row" style={{ marginTop: 14, flexWrap: "wrap" }}>
             <div className="col card" style={{ flex: "1 1 400px" }}>
               <h2>Søle-prosent (Wet-rate) per dag</h2>
-              <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: 10 }}>Inkluderer kun w, vw og ww.</div>
+              <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: 10 }}>Basert på MM, W og VW-kryss.</div>
               <div style={{ width: "100%", height: 300 }}>
                 <ResponsiveContainer>
                   <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>

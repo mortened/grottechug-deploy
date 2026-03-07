@@ -7,6 +7,7 @@ import { LeaderboardPage } from "../pages/LeaderboardPage";
 import { PersonPage } from "../pages/PersonPage";
 import { StatsDashboardPage } from "../pages/StatsDashboardPage";
 import { GrottaPage } from "../pages/GrottaPage";
+import { ViolationsPage } from "../pages/ViolationsPage";
 import { HomePage } from "../pages/HomePage";
 
 export const router = createBrowserRouter([
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "person/:id", element: <PersonPage /> },
       { path: "stats", element: <StatsDashboardPage /> },
       { path: "grotta", element: <GrottaPage /> },
+      { path: "violations", element: <ViolationsPage /> },
     ]
   }
 ]);

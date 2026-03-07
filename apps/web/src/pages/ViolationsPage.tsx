@@ -1,97 +1,182 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 type Semester = "2026V" | "2025H" | "all";
 
-type SummaryRow = {
+type DetailRow = {
   participantId: string;
   name: string;
   isRegular: boolean;
   total: number;
-  count: number;
+  byRule: Record<string, number>;
 };
 
-type SummaryResp = {
+type DetailResp = {
   semester: string;
-  rows: SummaryRow[];
+  rows: DetailRow[];
 };
 
-type Violation = {
+type ViolationEntry = {
   id: string;
+  participantId: string;
   participantName: string;
+  isRegular: boolean;
+  sessionId: string;
   dateISO: string;
   ruleCode: string;
   crosses: number;
   reason?: string | null;
 };
 
-export function ViolationsPage() {
-  const [semester, setSemester] = useState<Semester>("all");
-  const [summary, setSummary] = useState<SummaryResp | null>(null);
-  const [details, setDetails] = useState<Violation[]>([]);
-  const [showDetails, setShowDetails] = useState(false);
+const RULE_ORDER = ["DNS", "DNF", "MM", "W", "VW", "P", "ABSENCE", "VOMIT", "KPR"];
+const RULE_LABELS: Record<string, string> = {
+  DNS: "DNS", DNF: "DNF", MM: "MM", W: "W", VW: "VW",
+  P: "P", ABSENCE: "Fravær", VOMIT: "Oppkast", KPR: "KPR"
+};
+const RULE_CROSSES: Record<string, number> = {
+  DNS: 3, DNF: 2, MM: 0.5, W: 1, VW: 2, P: 1, ABSENCE: 2, VOMIT: 4, KPR: 1
+};
 
-  async function loadSummary() {
-    const res = await fetch(`/api/crosses/summary?semester=${semester}`);
-    const json: SummaryResp = await res.json();
-    setSummary(json);
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+export function ViolationsPage() {
+  const nav = useNavigate();
+  const [semester, setSemester] = useState<Semester>("all");
+  const [detail, setDetail] = useState<DetailResp | null>(null);
+  const [violations, setViolations] = useState<ViolationEntry[]>([]);
+  const [showDetails, setShowDetails] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showGuests, setShowGuests] = useState(false);
+
+  async function loadDetail() {
+    setDetail(null);
+    const res = await fetch(`/api/crosses/detail?semester=${semester}`);
+    setDetail(await res.json());
   }
 
-  async function loadDetails() {
-    const res = await fetch(`/api/violations`);
-    const json: Violation[] = await res.json();
-    setDetails(json);
+  async function loadViolations() {
+    const res = await fetch(`/api/violations?semester=${semester}`);
+    setViolations(await res.json());
   }
 
   useEffect(() => {
-    loadSummary();
+    setExpandedId(null);
+    loadDetail();
+    if (showDetails) loadViolations();
   }, [semester]);
 
   useEffect(() => {
-    if (showDetails) loadDetails();
+    if (showDetails) loadViolations();
   }, [showDetails]);
+
+  async function deleteViolation(id: string) {
+    await fetch(`/api/violations/${id}`, { method: "DELETE" });
+    loadViolations();
+    loadDetail();
+  }
+
+  const visibleRows = showGuests
+    ? (detail?.rows ?? [])
+    : (detail?.rows.filter(r => r.isRegular) ?? []);
+
+  const usedRules = new Set(visibleRows.flatMap(r => Object.keys(r.byRule)));
+  const ruleCols = RULE_ORDER.filter(r => usedRules.has(r));
+
+  const expandedViolations = violations.filter(v => v.participantId === expandedId);
+  const expandedName = detail?.rows.find(r => r.participantId === expandedId)?.name;
 
   return (
     <div>
       <h1>Kryssliste</h1>
-      <p>Sortert etter total kryss (høyest først).</p>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-        <button className="btn" onClick={() => setSemester("2025H")} disabled={semester === "2025H"}>2025 Høst</button>
-        <button className="btn" onClick={() => setSemester("2026V")} disabled={semester === "2026V"}>2026 Vår</button>
-        <button className="btn" onClick={() => setSemester("all")} disabled={semester === "all"}>Total</button>
-
-        <button className="btn" onClick={() => setShowDetails(v => !v)}>
-          {showDetails ? "Skjul detaljer" : "Vis detaljer"}
-        </button>
+      <div className="sheetBar">
+        <div className="tabs">
+          <button
+            className={`tab ${semester === "2025H" ? "tabActive" : ""}`}
+            onClick={() => setSemester("2025H")}
+          >
+            2025 Høst
+          </button>
+          <button
+            className={`tab ${semester === "2026V" ? "tabActive" : ""}`}
+            onClick={() => setSemester("2026V")}
+          >
+            2026 Vår
+          </button>
+          <button
+            className={`tab ${semester === "all" ? "tabActive" : ""}`}
+            onClick={() => setSemester("all")}
+          >
+            Total
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => setShowGuests(v => !v)}>
+            {showGuests ? "Skjul gjester" : "Vis gjester"}
+          </button>
+          <button className="btn" onClick={() => setShowDetails(v => !v)}>
+            {showDetails ? "Skjul detaljer" : "Vis detaljer"}
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 14 }}>
-        {!summary ? (
+        {!detail ? (
           <p>Laster…</p>
         ) : (
           <div className="tableWrap">
-            <table style={{ minWidth: 700 }}>
+            <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Deltaker</th>
+                  <th className="sticky">Deltaker</th>
                   <th>Status</th>
                   <th>Total kryss</th>
-                  <th>Antall hendelser</th>
+                  {ruleCols.map(code => (
+                    <th key={code} title={`${RULE_CROSSES[code]}× per ${RULE_LABELS[code] ?? code}`}>
+                      <div>{RULE_LABELS[code] ?? code}</div>
+                      <div style={{ fontSize: 10, fontWeight: "normal", color: "var(--muted)", marginTop: 2 }}>×{RULE_CROSSES[code]}</div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {summary.rows.map((r, i) => (
-                  <tr key={r.participantId}>
+                {visibleRows.map((r, i) => (
+                  <tr
+                    key={r.participantId}
+                    style={{ cursor: showDetails ? "pointer" : undefined }}
+                    className={expandedId === r.participantId ? "separatorRow" : undefined}
+                    onClick={() => {
+                      if (!showDetails) return;
+                      setExpandedId(prev => prev === r.participantId ? null : r.participantId);
+                    }}
+                  >
                     <td>{i + 1}</td>
-                    <td><b>{r.name}</b></td>
+                    <td className="sticky">
+                      <button className="btn" style={{ padding: "6px 10px" }} onClick={e => { e.stopPropagation(); nav(`/person/${r.participantId}`); }}>
+                        {r.name}
+                      </button>
+                    </td>
                     <td><span className="badge">{r.isRegular ? "fast" : "gjest"}</span></td>
-                    <td>{r.total}</td>
-                    <td style={{ color: "var(--muted)" }}>{r.count}</td>
+                    <td><b>{Math.floor(r.total)}</b></td> 
+                    {ruleCols.map(code => (
+                      <td key={code}>
+                        {r.byRule[code]
+                          ? <b style={{ color: "var(--danger, #ef4444)" }}>{r.byRule[code]}</b>
+                          : <span style={{ color: "var(--muted)" }}>–</span>}
+                      </td>
+                    ))}
                   </tr>
                 ))}
-                {!summary.rows.length && (
-                  <tr><td colSpan={5} style={{ color: "var(--muted)" }}>Ingen kryss registrert ennå</td></tr>
+                {!visibleRows.length && (
+                  <tr>
+                    <td colSpan={4 + ruleCols.length} style={{ color: "var(--muted)" }}>
+                      Ingen kryss registrert ennå
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -99,33 +184,42 @@ export function ViolationsPage() {
         )}
       </div>
 
-      {showDetails && (
+      {showDetails && expandedId && (
         <div className="card" style={{ marginTop: 14 }}>
-          <h2>Detaljer</h2>
+          <h2>Detaljer – {expandedName}</h2>
           <div className="tableWrap">
-            <table style={{ minWidth: 800 }}>
+            <table style={{ minWidth: 600 }}>
               <thead>
                 <tr>
                   <th>Dato</th>
-                  <th>Deltaker</th>
                   <th>Kode</th>
                   <th>Kryss</th>
-                  <th>Begrunnelse</th>
+                  <th>Notat</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {details.map(v => (
+                {expandedViolations.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ color: "var(--muted)" }}>Ingen kryss</td>
+                  </tr>
+                ) : expandedViolations.map(v => (
                   <tr key={v.id}>
-                    <td>{new Date(v.dateISO).toLocaleDateString()}</td>
-                    <td><b>{v.participantName}</b></td>
+                    <td>{fmtDate(v.dateISO)}</td>
                     <td><span className="badge">{v.ruleCode}</span></td>
                     <td>{v.crosses}</td>
-                    <td style={{ color: "var(--muted)" }}>{v.reason ?? ""}</td>
+                    <td style={{ color: "var(--muted)" }}>{v.reason ?? "–"}</td>
+                    <td>
+                      <button
+                        className="btn btnDanger"
+                        style={{ padding: "4px 10px", fontSize: 12, color: "#ef4444", borderColor: "rgba(239,68,68,0.35)" }}
+                        onClick={e => { e.stopPropagation(); deleteViolation(v.id); }}
+                      >
+                        Slett
+                      </button>
+                    </td>
                   </tr>
                 ))}
-                {!details.length && (
-                  <tr><td colSpan={5} style={{ color: "var(--muted)" }}>Ingen detaljer</td></tr>
-                )}
               </tbody>
             </table>
           </div>

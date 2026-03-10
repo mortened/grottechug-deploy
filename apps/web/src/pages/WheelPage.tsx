@@ -554,7 +554,7 @@ export function WheelPage() {
                 angle={angle} 
                 winnerName={winner} 
                 isSpinning={spinning}
-                imageSrc="/public/logo-enkel.png" /* Bytt ut med den faktiske bilde-URLen din her */
+                imageSrc="/logo-enkel.png" /* Bytt ut med den faktiske bilde-URLen din her */
               />
             </div>
           </div>

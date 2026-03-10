@@ -24,6 +24,7 @@ personRouter.get("/:id", async (req, res) => {
   });
 
   const points = attempts.map(a => ({
+    sessionId: a.sessionId, // NY! Vi trenger denne for lenken
     dateISO: a.session.date.toISOString(),
     seconds: a.seconds,
     note: a.note ?? null

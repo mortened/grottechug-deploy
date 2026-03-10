@@ -115,7 +115,6 @@ export function ChugListPage() {
   async function load() {
     setData(null);
     
-    // NYTT: Henter inn tabell, anmerkninger OG sessions (for å få dagsnotater)
     const [resT, resV, resS] = await Promise.all([
       fetch(`/api/stats/table?semester=${semester}`),
       fetch(`/api/violations?semester=${semester}`),
@@ -478,6 +477,7 @@ export function ChugListPage() {
             </button>
           </div>
 
+          <label>Dagsnotat</label>
           <input
             className="input"
             value={sessionNote}
@@ -657,11 +657,31 @@ export function ChugListPage() {
                           ? (sortDir === "asc" ? " ▲" : " ▼")
                           : ""}
                         
+                        {/* NYTT: Klikkbart ikon for å åpne Session-siden */}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation(); // Hindrer sortering når man trykker på ikonet
+                            nav(`/session/${c.sessionId}`);
+                          }}
+                          title="Se dagsrapport og statistikk"
+                          style={{ 
+                            marginLeft: "8px", 
+                            opacity: 0.6, 
+                            cursor: "pointer",
+                            fontSize: "14px"
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
+                        >
+                          📊
+                        </span>
+                        
                         {/* GUL PRIKK FOR DAGSNOTAT */}
                         {hasDayNote && (
                           <>
-                            <span className="noteDot noteDotYellow" />
+                            <span className="noteDot noteDotYellow" style={{ top: 8, right: 6 }} />
                             <div className="tooltip">
+                              <strong style={{ display: "block", marginBottom: "4px" }}>Dagsnotat:</strong>
                               {c.note}
                             </div>
                           </>
@@ -716,7 +736,7 @@ export function ChugListPage() {
                                     {violationsStr}
                                   </div>
                                 )}
-                                {note && <div><strong>Notat:</strong> {note}</div>}
+                                {note && <div>{note}</div>}
                             </div>
                           )}
                         </td>
@@ -774,7 +794,7 @@ export function ChugListPage() {
                                     {violationsStr}
                                   </div>
                                 )}
-                                {note && <div><strong>Notat:</strong> {note}</div>}
+                                {note && <div>{note}</div>}
                             </div>
                           )}
                         </td>

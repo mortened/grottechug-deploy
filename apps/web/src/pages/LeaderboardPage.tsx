@@ -219,7 +219,7 @@ export function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {tableRows.map((r, i) => (
+                {tableRows.map((r: any, i) => (
                   <tr key={`${r.participantId}-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: 900 }}>
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
@@ -229,7 +229,7 @@ export function LeaderboardPage() {
                         className="btn" 
                         style={{ 
                           padding: "6px 12px", 
-                          fontSize: "15px", // Litt større navn
+                          fontSize: "15px",
                           fontWeight: 500,
                           whiteSpace: "normal", 
                           textAlign: "left" 
@@ -240,7 +240,35 @@ export function LeaderboardPage() {
                       </button>
                     </td>
                     <td style={{ padding: "8px", fontWeight: 600 }}>{r.bestClean.toFixed(2)}s</td>
-                    <td style={{ padding: "8px", color: "var(--muted)", fontSize: "13px" }}>{fmtDDMMYYYY(r.dateISO)}</td>
+                    <td style={{ padding: "8px" }}>
+                      {/* NYTT: Diskret lenke til Session-siden */}
+                      <button
+                        className="btnGhost"
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "8px",
+                          border: "none",
+                          color: "var(--muted)",
+                          fontSize: "13px",
+                          cursor: "pointer",
+                          transition: "color 0.2s, background 0.2s",
+                          background: "transparent",
+                          textAlign: "left"
+                        }}
+                        onClick={() => nav(`/session/${r.sessionId}`)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "var(--accent)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--muted)";
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                        title="Se dagsrapport for denne kvelden"
+                      >
+                        {fmtDDMMYYYY(r.dateISO)}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

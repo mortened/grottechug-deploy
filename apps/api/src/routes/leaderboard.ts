@@ -43,6 +43,7 @@ leaderboardRouter.get("/", async (req, res) => {
       imageUrl: string | null;
       bestClean: number;
       dateISO: string;
+      sessionId: string; // NY!
     }
   > = {};
 
@@ -57,7 +58,8 @@ leaderboardRouter.get("/", async (req, res) => {
         isRegular: a.participant.isRegular,
         imageUrl: a.participant.imageUrl ?? null,
         bestClean: a.seconds,
-        dateISO: a.session.date.toISOString()
+        dateISO: a.session.date.toISOString(),
+        sessionId: a.sessionId // NY! Henter ID-en til sessionen herfra
       };
     }
   }

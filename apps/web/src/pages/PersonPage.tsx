@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend
 } from "recharts";
 
 type Semester = "2026V" | "2025H" | "all";
 
-type Point = { dateISO: string; seconds: number; note: string | null };
+// NYTT: Inkludert sessionId i typen
+type Point = { sessionId: string; dateISO: string; seconds: number; note: string | null };
 type Resp = {
   participant: { id: string; name: string; isRegular: boolean; imageUrl?: string | null };
   semester: string;
@@ -24,6 +25,7 @@ function fmtDDMMYYYY(iso: string) {
 
 export function PersonPage() {
   const { id } = useParams();
+  const nav = useNavigate(); // NYTT: For navigering
   const [semester, setSemester] = useState<Semester>("2026V");
   const [data, setData] = useState<Resp | null>(null);
   
@@ -35,19 +37,12 @@ export function PersonPage() {
   useEffect(() => {
     (async () => {
       try {
-        // Vi bruker nå /api/participants med includeGuests=true
         const res = await fetch(`/api/participants?includeGuests=true`);
         const json = await res.json();
         
-        // json vil nå se slik ut: [{ id: "...", name: "...", attempts: 5, isRegular: false }, ...]
-        console.log("Deltakere mottatt:", json);
-
         const list = json
           .filter((r: any) => {
-            // Ikke ta med seg selv
             if (String(r.id) === String(id)) return false;
-            
-            // Inkluder hvis person er fast ELLER gjest med 4 eller flere forsøk
             return r.isRegular || (r.attempts >= 4);
           })
           .map((r: any) => ({ 
@@ -136,7 +131,6 @@ export function PersonPage() {
   const p = data.participant;
   const bestClean = data.stats.bestClean;
 
-  // Innsikt-kalkuleringer
   let changeSinceStart = null;
   let last3Avg = null;
   let projectedNext = null;
@@ -161,7 +155,6 @@ export function PersonPage() {
     last3Avg = last3.reduce((sum, pt) => sum + pt.seconds, 0) / last3.length;
   }
 
-  // Head-to-head
   let headToHeadAvg = "Uavgjort / Mangler data";
   let headToHeadBest = "Uavgjort / Mangler data";
   let headToHeadConsistency = "Uavgjort / Mangler data";
@@ -178,7 +171,7 @@ export function PersonPage() {
       else if (diff > 0) headToHeadBest = `${compareData.participant.name} (-${diff.toFixed(2)}s)`;
     }
     if (data.points.length >= 2 && compareData.points.length >= 2) {
-      const getGap = (pts: Point[]) => Math.max(...pts.map(p => p.seconds)) - Math.min(...pts.map(p => p.seconds));
+      const getGap = (pts: Point[]) => Math.max(...pts.map(pt => pt.seconds)) - Math.min(...pts.map(pt => pt.seconds));
       const myGap = getGap(data.points);
       const compGap = getGap(compareData.points);
       if (myGap < compGap) headToHeadConsistency = p.name;
@@ -191,7 +184,6 @@ export function PersonPage() {
     <div>
       <div className="row" style={{ marginTop: 14, flexWrap: "wrap", alignItems: "stretch" }}>
         
-        {/* PROFILKORT */}
         <div className="col card" style={{ flex: "1 1 250px", maxWidth: "100%", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
             <h1 style={{ margin: 0 }}>{p.name}</h1>
@@ -243,7 +235,6 @@ export function PersonPage() {
           </div>
         </div>
 
-        {/* GRAF OG INNSIKT */}
         <div className="col card" style={{ flex: "2 1 500px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Utvikling</h2>
@@ -326,7 +317,6 @@ export function PersonPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* INNSIKT-BOKSEN */}
           <div className="hr" style={{ marginTop: 12, marginBottom: 12 }} />
           <div style={{ 
             display: "grid", 
@@ -383,7 +373,6 @@ export function PersonPage() {
         </div>
       </div>
 
-      {/* HISTORIKK TABELL */}
       <div className="card" style={{ marginTop: 14 }}>
         <h2>Historikk</h2>
         <div className="tableWrap">
@@ -400,8 +389,18 @@ export function PersonPage() {
                 const isPB = !pt.note && bestClean !== null && pt.seconds === bestClean;
                 return (
                   <tr key={`${pt.dateISO}-${i}`}>
-                    <td style={{ padding: 10, color: "var(--muted)" }}>{fmtDDMMYYYY(pt.dateISO)}</td>
-                    <td style={{ padding: 10, fontWeight: isPB ? 900 : 500, color: isPB ? "var(--accent)" : "inherit" }}>
+                    {/* NYTT: Klikkbar dato */}
+                    <td style={{ padding: 10, color: "var(--muted)" }}>
+                      <button 
+                        className="btnGhost" 
+                        style={{ padding: "4px 8px", borderRadius: 6, cursor: "pointer", border: "none", color: "var(--accent)" }}
+                        onClick={() => nav(`/session/${pt.sessionId}`)}
+                        title="Se detaljer for denne dagen"
+                      >
+                        {fmtDDMMYYYY(pt.dateISO)}
+                      </button>
+                    </td>
+                    <td style={{ padding: 10, fontWeight: isPB ? 900 : 500, color: isPB ? "var(--accent4)" : "inherit" }}>
                       {pt.seconds.toFixed(2)}s {isPB && "🌟"}
                     </td>
                     <td style={{ padding: 10, color: pt.note ? "var(--danger)" : "var(--muted)" }}>

@@ -205,7 +205,34 @@ export function ViolationsPage() {
                   </tr>
                 ) : expandedViolations.map(v => (
                   <tr key={v.id}>
-                    <td>{fmtDate(v.dateISO)}</td>
+                    <td>
+                      {/* NYTT: Subtil Ghost-knapp for å navigere til dagsrapporten */}
+                      <button
+                        className="btnGhost"
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          border: "none",
+                          color: "var(--muted)",
+                          cursor: "pointer",
+                          transition: "color 0.2s, background 0.2s",
+                          background: "transparent",
+                          textAlign: "left"
+                        }}
+                        onClick={() => nav(`/session/${v.sessionId}`)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "var(--accent)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--muted)";
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                        title="Se dagsrapport og statistikk"
+                      >
+                        {fmtDate(v.dateISO)}
+                      </button>
+                    </td>
                     <td><span className="badge">{v.ruleCode}</span></td>
                     <td>{v.crosses}</td>
                     <td style={{ color: "var(--muted)" }}>{v.reason ?? "–"}</td>

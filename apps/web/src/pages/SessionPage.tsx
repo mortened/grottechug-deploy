@@ -16,7 +16,12 @@ import {
 } from "recharts";
 import { apiFetch } from "../lib/api";
 
-type SessionCol = { sessionId: string; dateISO: string; note?: string | null; id?: string };
+type SessionCol = {
+  sessionId: string;
+  dateISO: string;
+  note?: string | null;
+  id?: string;
+};
 type CellData = { seconds: number | null; note: string | null };
 type Row = { participantId: string; name: string; isRegular: boolean };
 
@@ -157,7 +162,12 @@ const CustomBarLabel = (props: any) => {
   const hasNote = !!note;
 
   if (!hasViolations && !hasNote) return null;
-  if (typeof x !== "number" || typeof y !== "number" || typeof width !== "number") return null;
+  if (
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    typeof width !== "number"
+  )
+    return null;
 
   const dotY = y - 8;
   const centerX = x + width / 2;
@@ -217,20 +227,24 @@ export function SessionPage() {
     if (!tableData || !sessions.length || !id) return null;
 
     const sortedSessions = [...sessions].sort(
-      (a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime()
+      (a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime(),
     );
 
-    const currentIndex = sortedSessions.findIndex((s) => (s.id || s.sessionId) === id);
+    const currentIndex = sortedSessions.findIndex(
+      (s) => (s.id || s.sessionId) === id,
+    );
     if (currentIndex === -1) return null;
 
     const currentSession = sortedSessions[currentIndex];
     const prevSessionId =
       currentIndex > 0
-        ? sortedSessions[currentIndex - 1].id || sortedSessions[currentIndex - 1].sessionId
+        ? sortedSessions[currentIndex - 1].id ||
+          sortedSessions[currentIndex - 1].sessionId
         : null;
     const nextSessionId =
       currentIndex < sortedSessions.length - 1
-        ? sortedSessions[currentIndex + 1].id || sortedSessions[currentIndex + 1].sessionId
+        ? sortedSessions[currentIndex + 1].id ||
+          sortedSessions[currentIndex + 1].sessionId
         : null;
 
     const historySessions = sortedSessions.slice(0, currentIndex);
@@ -256,7 +270,9 @@ export function SessionPage() {
     const sortedByAvg = [...allSessionsStats].sort((a, b) => a.avg! - b.avg!);
     const avgRank = sortedByAvg.findIndex((s) => s.sid === id) + 1;
 
-    const sortedByCount = [...allSessionsStats].sort((a, b) => b.count - a.count);
+    const sortedByCount = [...allSessionsStats].sort(
+      (a, b) => b.count - a.count,
+    );
     const countRank = sortedByCount.findIndex((s) => s.sid === id) + 1;
 
     const attempts: AttemptStat[] = [];
@@ -271,24 +287,37 @@ export function SessionPage() {
         .filter((v) => v.participantId === row.participantId)
         .map((v) => v.ruleCode);
 
-      if (participantViolations.some((v) => ["W", "VW", "MM", "P", "T"].includes(v))) {
+      if (
+        participantViolations.some((v) =>
+          ["W", "VW", "MM", "P", "T"].includes(v),
+        )
+      ) {
         wetCount++;
       }
 
       const historyTimes = historySessions
-        .map((s) => tableData.cells[row.participantId]?.[s.id || s.sessionId]?.seconds)
+        .map(
+          (s) =>
+            tableData.cells[row.participantId]?.[s.id || s.sessionId]?.seconds,
+        )
         .filter((sec): sec is number => sec != null);
 
-      const pbBefore = historyTimes.length > 0 ? Math.min(...historyTimes) : null;
-      const lastTime = historyTimes.length > 0 ? historyTimes[historyTimes.length - 1] : null;
+      const pbBefore =
+        historyTimes.length > 0 ? Math.min(...historyTimes) : null;
+      const lastTime =
+        historyTimes.length > 0 ? historyTimes[historyTimes.length - 1] : null;
 
       let projected = null;
       if (historyTimes.length >= 2) {
         const n = historyTimes.length;
         const sumX = historyTimes.map((_, i) => i).reduce((a, b) => a + b, 0);
         const sumY = historyTimes.reduce((a, b) => a + b, 0);
-        const sumXY = historyTimes.map((pt, i) => i * pt).reduce((a, b) => a + b, 0);
-        const sumXX = historyTimes.map((_, i) => i * i).reduce((a, b) => a + b, 0);
+        const sumXY = historyTimes
+          .map((pt, i) => i * pt)
+          .reduce((a, b) => a + b, 0);
+        const sumXX = historyTimes
+          .map((_, i) => i * i)
+          .reduce((a, b) => a + b, 0);
         const denom = n * sumXX - sumX * sumX;
         const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
         const b = (sumY - m * sumX) / n;
@@ -324,11 +353,15 @@ export function SessionPage() {
     const slowest = attempts[attempts.length - 1] || null;
 
     const fastestGlobalRank =
-      fastest != null ? allHistoricalTimes.findIndex((t) => t === fastest.seconds) + 1 : null;
+      fastest != null
+        ? allHistoricalTimes.findIndex((t) => t === fastest.seconds) + 1
+        : null;
 
     const slowestGlobalRank =
       slowest != null
-        ? [...allHistoricalTimes].sort((a, b) => b - a).findIndex((t) => t === slowest.seconds) + 1
+        ? [...allHistoricalTimes]
+            .sort((a, b) => b - a)
+            .findIndex((t) => t === slowest.seconds) + 1
         : null;
 
     return {
@@ -381,10 +414,13 @@ export function SessionPage() {
   }, [violations]);
 
   const pieData = useMemo(() => {
-    const counts = violations.reduce((acc, v) => {
-      acc[v.ruleCode] = (acc[v.ruleCode] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const counts = violations.reduce(
+      (acc, v) => {
+        acc[v.ruleCode] = (acc[v.ruleCode] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return Object.entries(counts).map(([name, value]) => ({
       name,
@@ -401,7 +437,7 @@ export function SessionPage() {
           ...a,
           pbDelta: a.diffPb!,
         })) ?? [],
-    [sessionStats]
+    [sessionStats],
   );
 
   const gapToWinnerData = useMemo(() => {
@@ -417,7 +453,10 @@ export function SessionPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: 100, textAlign: "center" }}>
+      <div
+        className="container"
+        style={{ paddingTop: 100, textAlign: "center" }}
+      >
         Laster dagens resultater...
       </div>
     );
@@ -425,59 +464,71 @@ export function SessionPage() {
 
   if (!sessionStats) {
     return (
-      <div className="container" style={{ paddingTop: 100, textAlign: "center" }}>
+      <div
+        className="container"
+        style={{ paddingTop: 100, textAlign: "center" }}
+      >
         Fant ikke denne chugge-dagen.
       </div>
     );
   }
 
-  const validProjected = sessionStats.attempts.filter((a) => a.diffProjected !== null);
+  const validProjected = sessionStats.attempts.filter(
+    (a) => a.diffProjected !== null,
+  );
 
   const bestProjected =
     validProjected.length > 0
       ? validProjected.reduce((prev, curr) =>
-          curr.diffProjected! < prev.diffProjected! ? curr : prev
+          curr.diffProjected! < prev.diffProjected! ? curr : prev,
         )
       : null;
 
   const worstProjected =
     validProjected.length > 0
       ? validProjected.reduce((prev, curr) =>
-          curr.diffProjected! > prev.diffProjected! ? curr : prev
+          curr.diffProjected! > prev.diffProjected! ? curr : prev,
         )
       : null;
 
   const bestPbSmasher = sessionStats.attempts
     .filter((a) => a.diffPb !== null && a.diffPb < 0)
     .reduce(
-      (prev, curr) => (prev === null || curr.diffPb! < prev.diffPb! ? curr : prev),
-      null as AttemptStat | null
+      (prev, curr) =>
+        prev === null || curr.diffPb! < prev.diffPb! ? curr : prev,
+      null as AttemptStat | null,
     );
 
   const steadyHand =
     validProjected.length > 0
       ? validProjected.reduce((prev, curr) =>
-          Math.abs(curr.diffProjected!) < Math.abs(prev.diffProjected!) ? curr : prev
+          Math.abs(curr.diffProjected!) < Math.abs(prev.diffProjected!)
+            ? curr
+            : prev,
         )
       : null;
 
   const closeCalls = sessionStats.attempts.filter(
-    (a) => a.diffPb !== null && a.diffPb > 0 && a.diffPb <= 0.3
+    (a) => a.diffPb !== null && a.diffPb > 0 && a.diffPb <= 0.3,
   );
 
   const closestCall =
     closeCalls.length > 0
-      ? closeCalls.reduce((prev, curr) => (curr.diffPb! < prev.diffPb! ? curr : prev))
+      ? closeCalls.reduce((prev, curr) =>
+          curr.diffPb! < prev.diffPb! ? curr : prev,
+        )
       : null;
 
   const comebacks = sessionStats.attempts.filter(
-    (a) => a.lastTime !== null && a.lastTime - a.seconds > 0
+    (a) => a.lastTime !== null && a.lastTime - a.seconds > 0,
   );
 
   const biggestComeback =
     comebacks.length > 0
       ? comebacks.reduce((prev, curr) =>
-          curr.lastTime! - curr.seconds > prev.lastTime! - prev.seconds ? curr : prev
+          curr.lastTime! - curr.seconds > prev.lastTime! - prev.seconds
+            ? curr
+            : prev,
         )
       : null;
 
@@ -552,7 +603,8 @@ export function SessionPage() {
         style={{
           marginBottom: 24,
           padding: 24,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
         }}
       >
         <h1 style={{ fontSize: "2.4rem", marginBottom: 8 }}>
@@ -591,7 +643,8 @@ export function SessionPage() {
             ...(sessionStats.avgRank === 1
               ? {
                   border: "2px solid rgba(250, 204, 21, 0.8)",
-                  background: "linear-gradient(180deg, rgba(250,204,21,0.1), rgba(255,255,255,0.02))",
+                  background:
+                    "linear-gradient(180deg, rgba(250,204,21,0.1), rgba(255,255,255,0.02))",
                 }
               : {}),
           }}
@@ -611,13 +664,17 @@ export function SessionPage() {
               fontSize: "2.2rem",
               fontWeight: 900,
               color: sessionStats.avgRank === 1 ? "#facc15" : "var(--accent)",
-              textShadow: sessionStats.avgRank === 1 ? "0 0 15px rgba(250,204,21,0.5)" : "none",
+              textShadow:
+                sessionStats.avgRank === 1
+                  ? "0 0 15px rgba(250,204,21,0.5)"
+                  : "none",
             }}
           >
             {sessionStats.avgTime?.toFixed(2)}s
           </div>
           <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>
-            #{sessionStats.avgRank}/{sessionStats.totalSessionsWithAvg} raskeste snitt
+            #{sessionStats.avgRank}/{sessionStats.totalSessionsWithAvg} raskeste
+            snitt
           </div>
         </div>
 
@@ -629,7 +686,8 @@ export function SessionPage() {
             ...(sessionStats.countRank === 1
               ? {
                   border: "2px solid rgba(250, 204, 21, 0.8)",
-                  background: "linear-gradient(180deg, rgba(250,204,21,0.1), rgba(255,255,255,0.02))",
+                  background:
+                    "linear-gradient(180deg, rgba(250,204,21,0.1), rgba(255,255,255,0.02))",
                 }
               : {}),
           }}
@@ -649,13 +707,17 @@ export function SessionPage() {
               fontSize: "2.2rem",
               fontWeight: 900,
               color: sessionStats.countRank === 1 ? "#facc15" : "white",
-              textShadow: sessionStats.countRank === 1 ? "0 0 15px rgba(250,204,21,0.5)" : "none",
+              textShadow:
+                sessionStats.countRank === 1
+                  ? "0 0 15px rgba(250,204,21,0.5)"
+                  : "none",
             }}
           >
             {sessionStats.participantCount}
           </div>
           <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>
-            #{sessionStats.countRank}/{sessionStats.totalSessionsWithCount} beste oppmøte
+            #{sessionStats.countRank}/{sessionStats.totalSessionsWithCount}{" "}
+            beste oppmøte
           </div>
         </div>
 
@@ -668,7 +730,8 @@ export function SessionPage() {
               ...(isAllTimeFastest
                 ? {
                     border: "2px solid rgba(250, 204, 21, 0.85)",
-                    background: "linear-gradient(180deg, rgba(250,204,21,0.12), rgba(255,255,255,0.02))",
+                    background:
+                      "linear-gradient(180deg, rgba(250,204,21,0.12), rgba(255,255,255,0.02))",
                     boxShadow: "0 0 24px rgba(250, 204, 21, 0.18)",
                   }
                 : {}),
@@ -681,7 +744,9 @@ export function SessionPage() {
                 fontWeight: 700,
               }}
             >
-              {isAllTimeFastest ? "🏆 Raskest i dag • All-time rekord" : "⚡ Raskest i dag"}
+              {isAllTimeFastest
+                ? "🏆 Raskest i dag • All-time rekord"
+                : "⚡ Raskest i dag"}
             </div>
 
             <div
@@ -689,7 +754,9 @@ export function SessionPage() {
                 fontSize: "1.4rem",
                 fontWeight: 900,
                 color: isAllTimeFastest ? "#fef08a" : "white",
-                textShadow: isAllTimeFastest ? "0 0 14px rgba(250,204,21,0.35)" : "none",
+                textShadow: isAllTimeFastest
+                  ? "0 0 14px rgba(250,204,21,0.35)"
+                  : "none",
               }}
             >
               <PersonName
@@ -709,7 +776,8 @@ export function SessionPage() {
             </div>
 
             <div style={{ fontSize: "0.8rem", opacity: 0.65, marginTop: 4 }}>
-              #{sessionStats.fastestGlobalRank}/{sessionStats.totalHistoricalAttempts} raskeste tid noensinne
+              #{sessionStats.fastestGlobalRank}/
+              {sessionStats.totalHistoricalAttempts} raskeste tid noensinne
             </div>
           </div>
         )}
@@ -723,7 +791,8 @@ export function SessionPage() {
               ...(isAllTimeSlowest
                 ? {
                     border: "2px solid rgba(239, 68, 68, 0.8)",
-                    background: "linear-gradient(180deg, rgba(239,68,68,0.12), rgba(255,255,255,0.02))",
+                    background:
+                      "linear-gradient(180deg, rgba(239,68,68,0.12), rgba(255,255,255,0.02))",
                     boxShadow: "0 0 24px rgba(239, 68, 68, 0.16)",
                   }
                 : {}),
@@ -736,7 +805,9 @@ export function SessionPage() {
                 fontWeight: 700,
               }}
             >
-              {isAllTimeSlowest ? "💀 Tregest i dag • All-time bunnrekord" : "🐢 Tregest i dag"}
+              {isAllTimeSlowest
+                ? "💀 Tregest i dag • All-time bunnrekord"
+                : "🐢 Tregest i dag"}
             </div>
 
             <div
@@ -744,7 +815,9 @@ export function SessionPage() {
                 fontSize: "1.4rem",
                 fontWeight: 900,
                 color: isAllTimeSlowest ? "#fca5a5" : "white",
-                textShadow: isAllTimeSlowest ? "0 0 14px rgba(239,68,68,0.28)" : "none",
+                textShadow: isAllTimeSlowest
+                  ? "0 0 14px rgba(239,68,68,0.28)"
+                  : "none",
               }}
             >
               <PersonName
@@ -764,7 +837,8 @@ export function SessionPage() {
             </div>
 
             <div style={{ fontSize: "0.8rem", opacity: 0.65, marginTop: 4 }}>
-              #{sessionStats.slowestGlobalRank}/{sessionStats.totalHistoricalAttempts} tregeste tid noensinne
+              #{sessionStats.slowestGlobalRank}/
+              {sessionStats.totalHistoricalAttempts} tregeste tid noensinne
             </div>
           </div>
         )}
@@ -783,7 +857,8 @@ export function SessionPage() {
             className="card"
             style={{
               padding: "16px",
-              border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
             }}
           >
             <div
@@ -797,13 +872,23 @@ export function SessionPage() {
               📈 Overgikk Forventningene
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={bestProjected.participantId} name={bestProjected.name} />
+              <PersonName
+                personId={bestProjected.participantId}
+                name={bestProjected.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Faktisk tid: <b>{bestProjected.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "#10b981" }}>
-              {Math.abs(bestProjected.diffProjected!).toFixed(2)}s raskere enn projisert.
+              {Math.abs(bestProjected.diffProjected!).toFixed(2)}s raskere enn
+              projisert.
             </div>
           </div>
         )}
@@ -813,7 +898,8 @@ export function SessionPage() {
             className="card"
             style={{
               padding: "16px",
-              border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
             }}
           >
             <div
@@ -827,9 +913,18 @@ export function SessionPage() {
               📉 Skuffet Mest
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={worstProjected.participantId} name={worstProjected.name} />
+              <PersonName
+                personId={worstProjected.participantId}
+                name={worstProjected.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Faktisk tid: <b>{worstProjected.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "var(--danger)" }}>
@@ -857,9 +952,18 @@ export function SessionPage() {
               🔥 Knuste Egen Rekord
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={bestPbSmasher.participantId} name={bestPbSmasher.name} />
+              <PersonName
+                personId={bestPbSmasher.participantId}
+                name={bestPbSmasher.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Ny rekord: <b>{bestPbSmasher.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "#10b981" }}>
@@ -887,14 +991,23 @@ export function SessionPage() {
               🚀 Dagens Comeback
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={biggestComeback.participantId} name={biggestComeback.name} />
+              <PersonName
+                personId={biggestComeback.participantId}
+                name={biggestComeback.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Faktisk tid: <b>{biggestComeback.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "#10b981" }}>
-              {(biggestComeback.lastTime! - biggestComeback.seconds).toFixed(2)}s raskere enn
-              sist!
+              {(biggestComeback.lastTime! - biggestComeback.seconds).toFixed(2)}
+              s raskere enn sist!
             </div>
           </div>
         )}
@@ -918,13 +1031,23 @@ export function SessionPage() {
               🎯 Stabilitets-prisen
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={steadyHand.participantId} name={steadyHand.name} />
+              <PersonName
+                personId={steadyHand.participantId}
+                name={steadyHand.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Faktisk tid: <b>{steadyHand.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Kun {Math.abs(steadyHand.diffProjected!).toFixed(2)}s avvik fra trend.
+              Kun {Math.abs(steadyHand.diffProjected!).toFixed(2)}s avvik fra
+              trend.
             </div>
           </div>
         )}
@@ -948,9 +1071,18 @@ export function SessionPage() {
               🤏 Nesten-rekord
             </div>
             <div style={{ fontSize: "1.2rem", fontWeight: 900 }}>
-              <PersonName personId={closestCall.participantId} name={closestCall.name} />
+              <PersonName
+                personId={closestCall.participantId}
+                name={closestCall.name}
+              />
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "4px 0" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "var(--muted)",
+                margin: "4px 0",
+              }}
+            >
               Faktisk tid: <b>{closestCall.seconds.toFixed(2)}s</b>
             </div>
             <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
@@ -970,13 +1102,25 @@ export function SessionPage() {
       >
         <div className="card" style={{ padding: 20 }}>
           <h2 style={{ marginBottom: 12 }}>Forventning vs. realitet</h2>
-          <div style={{ color: "var(--muted)", fontSize: "0.95rem", marginBottom: 12 }}>
+          <div
+            style={{
+              color: "var(--muted)",
+              fontSize: "0.95rem",
+              marginBottom: 12,
+            }}
+          >
             Negativ verdi betyr raskere enn forventet.
           </div>
           <div style={{ width: "100%", height: 300 }}>
             <ResponsiveContainer>
-              <BarChart data={validProjected} margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <BarChart
+                data={validProjected}
+                margin={{ top: 10, right: 10, bottom: 20, left: -20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.08)"
+                />
                 <XAxis
                   dataKey="name"
                   stroke="var(--muted)"
@@ -998,7 +1142,11 @@ export function SessionPage() {
                     ];
                   }}
                 />
-                <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeWidth={2} />
+                <ReferenceLine
+                  y={0}
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth={2}
+                />
                 <Bar dataKey="diffProjected" radius={[8, 8, 0, 0]}>
                   {validProjected.map((entry, i) => (
                     <Cell
@@ -1015,13 +1163,25 @@ export function SessionPage() {
         {pbData.length > 0 && (
           <div className="card" style={{ padding: 20 }}>
             <h2 style={{ marginBottom: 12 }}>Avvik fra personlig rekord</h2>
-            <div style={{ color: "var(--muted)", fontSize: "0.95rem", marginBottom: 12 }}>
+            <div
+              style={{
+                color: "var(--muted)",
+                fontSize: "0.95rem",
+                marginBottom: 12,
+              }}
+            >
               Negativ verdi betyr ny personlig rekord.
             </div>
             <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
-                <BarChart data={pbData} margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <BarChart
+                  data={pbData}
+                  margin={{ top: 10, right: 10, bottom: 20, left: -20 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
                   <XAxis
                     dataKey="name"
                     stroke="var(--muted)"
@@ -1043,10 +1203,17 @@ export function SessionPage() {
                       ];
                     }}
                   />
-                  <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeWidth={2} />
+                  <ReferenceLine
+                    y={0}
+                    stroke="rgba(255,255,255,0.22)"
+                    strokeWidth={2}
+                  />
                   <Bar dataKey="pbDelta" radius={[8, 8, 0, 0]}>
                     {pbData.map((entry, i) => (
-                      <Cell key={i} fill={entry.pbDelta < 0 ? "#facc15" : "#94a3b8"} />
+                      <Cell
+                        key={i}
+                        fill={entry.pbDelta < 0 ? "#facc15" : "#94a3b8"}
+                      />
                     ))}
                   </Bar>
                 </BarChart>
@@ -1067,7 +1234,13 @@ export function SessionPage() {
         <div className="card" style={{ padding: 20 }}>
           <h2 style={{ marginBottom: 12 }}>Type kryss i dag</h2>
           {pieData.length === 0 ? (
-            <div style={{ textAlign: "center", paddingTop: 90, color: "var(--muted)" }}>
+            <div
+              style={{
+                textAlign: "center",
+                paddingTop: 90,
+                color: "var(--muted)",
+              }}
+            >
               Ingen kryss i dag! 🎉
             </div>
           ) : (
@@ -1088,7 +1261,10 @@ export function SessionPage() {
                     {pieData.map((entry, i) => (
                       <Cell
                         key={i}
-                        fill={RULE_COLORS[entry.name as keyof typeof RULE_COLORS] || FALLBACK_PIE_COLOR}
+                        fill={
+                          RULE_COLORS[entry.name as keyof typeof RULE_COLORS] ||
+                          FALLBACK_PIE_COLOR
+                        }
                         stroke="rgba(15, 23, 42, 0.98)"
                         strokeWidth={2}
                       />
@@ -1111,13 +1287,25 @@ export function SessionPage() {
 
         <div className="card" style={{ padding: 20 }}>
           <h2 style={{ marginBottom: 12 }}>Avstand opp til dagens raskeste</h2>
-          <div style={{ color: "var(--muted)", fontSize: "0.95rem", marginBottom: 12 }}>
+          <div
+            style={{
+              color: "var(--muted)",
+              fontSize: "0.95rem",
+              marginBottom: 12,
+            }}
+          >
             Viser hvor mange sekunder hver deltaker var bak dagens beste tid.
           </div>
           <div style={{ width: "100%", height: 300 }}>
             <ResponsiveContainer>
-              <BarChart data={gapToWinnerData} margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <BarChart
+                data={gapToWinnerData}
+                margin={{ top: 10, right: 10, bottom: 20, left: -20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.08)"
+                />
                 <XAxis
                   dataKey="name"
                   stroke="var(--muted)"
@@ -1131,18 +1319,28 @@ export function SessionPage() {
                   contentStyle={TOOLTIP_STYLE}
                   labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                   itemStyle={{ color: "#e2e8f0" }}
-                  formatter={(value, name, props: any) => {
+                  formatter={(value: any, name: any, props: any) => {
                     const numericValue = Number(value ?? 0);
                     if (name === "gap") {
-                      return [`+${numericValue.toFixed(2)}s`, "Bak dagens beste"];
+                      return [
+                        `+${numericValue.toFixed(2)}s`,
+                        "Bak dagens beste",
+                      ];
                     }
                     return [fmtSeconds(props?.payload?.seconds), "Tid"];
                   }}
                 />
-                <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeWidth={2} />
+                <ReferenceLine
+                  y={0}
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth={2}
+                />
                 <Bar dataKey="gap" radius={[8, 8, 0, 0]}>
                   {gapToWinnerData.map((entry, i) => (
-                    <Cell key={i} fill={entry.gap === 0 ? "#facc15" : getColor(entry.name)} />
+                    <Cell
+                      key={i}
+                      fill={entry.gap === 0 ? "#facc15" : getColor(entry.name)}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -1153,13 +1351,25 @@ export function SessionPage() {
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
         <h2 style={{ marginBottom: 12 }}>Tidsfordeling</h2>
-        <div style={{ color: "var(--muted)", fontSize: "0.95rem", marginBottom: 12 }}>
+        <div
+          style={{
+            color: "var(--muted)",
+            fontSize: "0.95rem",
+            marginBottom: 12,
+          }}
+        >
           Røde og gule prikker markerer henholdsvis kryss og notat.
         </div>
         <div style={{ width: "100%", height: 420 }}>
           <ResponsiveContainer>
-            <BarChart data={sessionStats.attempts} margin={{ top: 20, right: 10, bottom: 20, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+            <BarChart
+              data={sessionStats.attempts}
+              margin={{ top: 20, right: 10, bottom: 20, left: -20 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(255,255,255,0.08)"
+              />
               <XAxis
                 dataKey="name"
                 stroke="var(--muted)"
@@ -1167,14 +1377,18 @@ export function SessionPage() {
                 textAnchor="end"
                 height={70}
               />
-              <YAxis stroke="var(--muted)" tickFormatter={(v) => `${v}s`} />
+              <YAxis
+                stroke="var(--muted)"
+                tickFormatter={(v: number) => `${v}s`}
+              />
               <Tooltip
                 cursor={{ fill: "rgba(255,255,255,0.04)" }}
                 contentStyle={TOOLTIP_STYLE}
                 labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                 itemStyle={{ color: "#e2e8f0" }}
-                formatter={(value, name) => {
-                  if (name === "seconds") return [fmtSeconds(Number(value ?? 0)), "Tid"];
+                formatter={(value: any, name: any) => {
+                  if (name === "seconds")
+                    return [fmtSeconds(Number(value ?? 0)), "Tid"];
                   return [String(value), String(name ?? "")];
                 }}
               />
@@ -1205,12 +1419,20 @@ export function SessionPage() {
       <div className="card">
         <h2>Kryss og anmerkninger</h2>
         {groupedViolations.length === 0 ? (
-          <p style={{ textAlign: "center", color: "var(--muted)", padding: 20 }}>
+          <p
+            style={{ textAlign: "center", color: "var(--muted)", padding: 20 }}
+          >
             En helt ren dag! 🎉
           </p>
         ) : (
           <div className="tableWrap" style={{ border: "none" }}>
-            <table style={{ width: "100%", textAlign: "left", borderCollapse: "collapse" }}>
+            <table
+              style={{
+                width: "100%",
+                textAlign: "left",
+                borderCollapse: "collapse",
+              }}
+            >
               <thead>
                 <tr>
                   <th style={{ padding: 10 }}>Navn</th>
@@ -1231,11 +1453,13 @@ export function SessionPage() {
                         style={tablePersonLinkStyle}
                         onClick={() => nav(`/person/${v.participantId}`)}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.textDecorationColor = "rgba(255,255,255,0.75)";
+                          e.currentTarget.style.textDecorationColor =
+                            "rgba(255,255,255,0.75)";
                           e.currentTarget.style.opacity = "0.88";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.textDecorationColor = "transparent";
+                          e.currentTarget.style.textDecorationColor =
+                            "transparent";
                           e.currentTarget.style.opacity = "1";
                         }}
                       >
@@ -1243,7 +1467,9 @@ export function SessionPage() {
                       </button>
                     </td>
                     <td style={{ padding: 10 }}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <div
+                        style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+                      >
                         {v.codes.map((code, idx) => (
                           <span
                             key={idx}
@@ -1258,10 +1484,22 @@ export function SessionPage() {
                         ))}
                       </div>
                     </td>
-                    <td style={{ padding: 10, color: "var(--danger)", fontWeight: "bold" }}>
+                    <td
+                      style={{
+                        padding: 10,
+                        color: "var(--danger)",
+                        fontWeight: "bold",
+                      }}
+                    >
                       {v.totalCrosses}
                     </td>
-                    <td style={{ padding: 10, color: "var(--muted)", fontSize: "0.9rem" }}>
+                    <td
+                      style={{
+                        padding: 10,
+                        color: "var(--muted)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
                       {v.notes.join(" | ") || "–"}
                     </td>
                   </tr>

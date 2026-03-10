@@ -12,8 +12,8 @@ type Row = {
   avgOverall: number | null;
 };
 
-type SessionCol = { sessionId: string; dateISO: string };
-type Cell = { seconds: number | null; note: string | null };
+type SessionCol = { sessionId: string; dateISO: string; note?: string | null };
+type Cell = { seconds: number | null; note: string | null; violations?: string };
 
 type TableResponse = {
   semester: string;
@@ -30,7 +30,7 @@ type ViolationEntry = {
   crosses: number;
 };
 
-const PERF_CODES = ["MM", "W", "VW", "P", "DNS", "DNF", "VOMIT", "KPR"] as const;
+const PERF_CODES = ["MM", "W", "VW", "P", "T", "DNS", "DNF", "VOMIT", "KPR"] as const;
 
 type SortKey =
   | { kind: "none" }
@@ -48,7 +48,6 @@ function fmtDDMMYYYY(iso: string) {
   return `${dd}/${mm}/${yyyy}`;
 }
 function fmtDDMMYYYYFromYYYYMMDD(yyyyMmDd: string) {
-  // yyyy-mm-dd -> dd/mm/yyyy
   const [y, m, d] = yyyyMmDd.split("-");
   if (!y || !m || !d) return yyyyMmDd;
   return `${d}/${m}/${y}`;
@@ -81,6 +80,8 @@ export function ChugListPage() {
   const nav = useNavigate();
   const [semester, setSemester] = useState<Semester>("2026V");
   const [data, setData] = useState<TableResponse | null>(null);
+  
+  const [allViolations, setAllViolations] = useState<ViolationEntry[]>([]);
 
   const [sortKey, setSortKey] = useState<SortKey>({ kind: "none" });
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -92,7 +93,7 @@ export function ChugListPage() {
   const [draftViolations, setDraftViolations] = useState<Record<string, string[]>>({});
 
   const [newDayOpen, setNewDayOpen] = useState(false);
-  const [newDayDate, setNewDayDate] = useState(() => new Date().toISOString().slice(0, 10)); // yyyy-mm-dd
+  const [newDayDate, setNewDayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [textDate, setTextDate] = useState(() => fmtDDMMYYYYFromYYYYMMDD(new Date().toISOString().slice(0, 10)));
   const [newDaySemester, setNewDaySemester] = useState<"2026V" | "2025H">("2026V");
 
@@ -113,9 +114,29 @@ export function ChugListPage() {
 
   async function load() {
     setData(null);
-    const res = await fetch(`/api/stats/table?semester=${semester}`);
-    const json: TableResponse = await res.json();
+    
+    // NYTT: Henter inn tabell, anmerkninger OG sessions (for å få dagsnotater)
+    const [resT, resV, resS] = await Promise.all([
+      fetch(`/api/stats/table?semester=${semester}`),
+      fetch(`/api/violations?semester=${semester}`),
+      fetch(`/api/sessions?semester=${semester}`)
+    ]);
+    
+    const json: TableResponse = await resT.json();
+    const violationsJson: ViolationEntry[] = await resV.json();
+    const sessionsJson: Array<{id: string, note: string | null}> = await resS.json();
+    
+    // Fletter inn 'note' fra sessions inn i kolonnene
+    json.columns = json.columns.map(col => {
+      const foundSession = sessionsJson.find(s => s.id === col.sessionId);
+      return {
+        ...col,
+        note: foundSession?.note ?? null
+      };
+    });
+
     setData(json);
+    setAllViolations(violationsJson);
 
     setEditSessionId(prev => (prev && json.columns.some(c => c.sessionId === prev) ? prev : null));
   }
@@ -205,7 +226,6 @@ export function ChugListPage() {
 
     setDirtyCells(new Set());
     setDirtySessionNote(false);
-
     setEditSessionId(sessionId);
 
     const nextSec: Record<string, string> = {};
@@ -224,8 +244,7 @@ export function ChugListPage() {
     const found = sessions.find(s => s.id === sessionId);
     setSessionNote(found?.note ?? "");
 
-    const vRes = await fetch(`/api/violations?sessionId=${sessionId}`);
-    const sessionViolations = await vRes.json() as ViolationEntry[];
+    const sessionViolations = allViolations.filter(v => v.sessionId === sessionId);
     const nextViolations: Record<string, string[]> = {};
     for (const r of data.rows) {
       nextViolations[r.participantId] = sessionViolations
@@ -269,9 +288,7 @@ export function ChugListPage() {
       const seconds = secStr ? parseSeconds(secStr) : null;
       const hasValidTime = seconds !== null && Number.isFinite(seconds) && seconds > 0;
 
-      // Skip if no time AND no violations
-      if (!hasValidTime && violations.length === 0) continue;
-      // Skip if time was entered but is invalid
+      if (!hasValidTime && violations.length === 0 && !draftNote[participantId]?.trim()) continue;
       if (secStr && !hasValidTime) continue;
 
       const note = (draftNote[participantId] ?? "").trim();
@@ -340,7 +357,6 @@ export function ChugListPage() {
     }
   }
 
-  // NY: Funksjon for å slette hele dagen
   async function deleteSession(sessionId: string, dateISO: string) {
     const confirmMessage = `Er du helt sikker på at du vil SLETTE hele listen for ${fmtDDMMYYYY(dateISO)}?\n\nAlle tider og anmerkninger for denne dagen vil bli slettet for alltid. Dette kan ikke angres!`;
     
@@ -356,7 +372,6 @@ export function ChugListPage() {
           return;
         }
 
-        // Lukk editoren og last inn data på nytt
         setEditSessionId(null);
         setDirtyCells(new Set());
         setDirtySessionNote(false);
@@ -450,10 +465,8 @@ export function ChugListPage() {
         </div>
       )}
 
-      {/* Editor panel */}
       {editSession && data && (
         <div className="card" style={{ marginTop: 14 }}>
-          {/* NYTT: Lagt til flex container her for å putte Slett-knappen på linje med tittelen */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ margin: 0 }}>Spreadsheet – {fmtDDMMYYYY(editSession.dateISO)}</h2>
             <button 
@@ -465,7 +478,6 @@ export function ChugListPage() {
             </button>
           </div>
 
-          <label>Dagsnotat</label>
           <input
             className="input"
             value={sessionNote}
@@ -630,20 +642,33 @@ export function ChugListPage() {
 
                   <th style={{ color: "var(--muted)" }}>Historikk →</th>
 
-                  {data.columns.map(c => (
-                    <th
-                      key={c.sessionId}
-                      style={{ cursor: "pointer" }}
-                      title="Sorter på dato. Dobbeltklikk for å redigere den dagen."
-                      onClick={() => clickSort({ kind: "date", sessionId: c.sessionId })}
-                      onDoubleClick={() => openEditor(c.sessionId)}
-                    >
-                      {fmtDDMMYYYY(c.dateISO)}
-                      {sortKey.kind === "date" && sortKey.sessionId === c.sessionId
-                        ? (sortDir === "asc" ? " ▲" : " ▼")
-                        : ""}
-                    </th>
-                  ))}
+                  {data.columns.map(c => {
+                    const hasDayNote = c.note && c.note.trim() !== "";
+                    return (
+                      <th
+                        key={c.sessionId}
+                        className="cell" 
+                        style={{ cursor: "pointer" }} 
+                        onClick={() => clickSort({ kind: "date", sessionId: c.sessionId })}
+                        onDoubleClick={() => openEditor(c.sessionId)}
+                      >
+                        {fmtDDMMYYYY(c.dateISO)}
+                        {sortKey.kind === "date" && sortKey.sessionId === c.sessionId
+                          ? (sortDir === "asc" ? " ▲" : " ▼")
+                          : ""}
+                        
+                        {/* GUL PRIKK FOR DAGSNOTAT */}
+                        {hasDayNote && (
+                          <>
+                            <span className="noteDot noteDotYellow" />
+                            <div className="tooltip">
+                              {c.note}
+                            </div>
+                          </>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
 
@@ -651,7 +676,7 @@ export function ChugListPage() {
                 {regularRows.map(r => (
                   <tr key={r.participantId}>
                     <td className="sticky">
-                      <button className="btn" style={{ padding: "6px 10px" }} onClick={() => nav(`/person/${r.participantId}`)}>
+                      <button className="btn" style={{ padding: "6px 10px", width: "100%", textAlign: "left" }} onClick={() => nav(`/person/${r.participantId}`)}>
                         {r.name}
                       </button>
                     </td>
@@ -662,14 +687,37 @@ export function ChugListPage() {
                       const cell = data.cells?.[r.participantId]?.[c.sessionId];
                       const txt = cell?.seconds == null ? "" : `${cell.seconds.toFixed(2)}s`;
                       const note = cell?.note ?? null;
+                      
+                      const cellViolations = allViolations.filter(
+                        v => v.participantId === r.participantId && v.sessionId === c.sessionId
+                      );
+                      const violationsStr = cellViolations.map(v => v.ruleCode).join(", ");
+                      const hasViolations = cellViolations.length > 0;
+
                       return (
                         <td key={c.sessionId} className="cell">
                           {txt}
+                          
+                          {/* RØD PRIKK FOR ANMERKNING */}
+                          {hasViolations && (
+                            <span className="noteDot noteDotRed" style={{ right: note ? 12 : 4 }} />
+                          )}
+
+                          {/* GUL PRIKK FOR NOTAT */}
                           {note && (
-                            <>
-                              <span className="noteDot" />
-                              <div className="tooltip">{note}</div>
-                            </>
+                            <span className="noteDot noteDotYellow" />
+                          )}
+
+                          {/* FELLES TOOLTIP */}
+                          {(note || hasViolations) && (
+                            <div className="tooltip">
+                                {hasViolations && (
+                                  <div style={{ color: "#ef4444", marginBottom: note ? 6 : 0 }}>
+                                    {violationsStr}
+                                  </div>
+                                )}
+                                {note && <div><strong>Notat:</strong> {note}</div>}
+                            </div>
                           )}
                         </td>
                       );
@@ -686,7 +734,7 @@ export function ChugListPage() {
                 {guestRows.map(r => (
                   <tr key={r.participantId}>
                     <td className="sticky">
-                      <button className="btn" style={{ padding: "6px 10px" }} onClick={() => nav(`/person/${r.participantId}`)}>
+                      <button className="btn" style={{ padding: "6px 10px", width: "100%", textAlign: "left" }} onClick={() => nav(`/person/${r.participantId}`)}>
                         {r.name}
                       </button>
                     </td>
@@ -697,14 +745,37 @@ export function ChugListPage() {
                       const cell = data.cells?.[r.participantId]?.[c.sessionId];
                       const txt = cell?.seconds == null ? "" : `${cell.seconds.toFixed(2)}s`;
                       const note = cell?.note ?? null;
+                      
+                      const cellViolations = allViolations.filter(
+                        v => v.participantId === r.participantId && v.sessionId === c.sessionId
+                      );
+                      const violationsStr = cellViolations.map(v => v.ruleCode).join(", ");
+                      const hasViolations = cellViolations.length > 0;
+
                       return (
                         <td key={c.sessionId} className="cell">
                           {txt}
+                          
+                          {/* RØD PRIKK FOR ANMERKNING */}
+                          {hasViolations && (
+                            <span className="noteDot noteDotRed" style={{ right: note ? 12 : 4 }} />
+                          )}
+
+                          {/* GUL PRIKK FOR NOTAT */}
                           {note && (
-                            <>
-                              <span className="noteDot" />
-                              <div className="tooltip">{note}</div>
-                            </>
+                            <span className="noteDot noteDotYellow" />
+                          )}
+
+                          {/* FELLES TOOLTIP */}
+                          {(note || hasViolations) && (
+                            <div className="tooltip">
+                                {hasViolations && (
+                                  <div style={{ color: "#ef4444", marginBottom: note ? 6 : 0 }}>
+                                    {violationsStr}
+                                  </div>
+                                )}
+                                {note && <div><strong>Notat:</strong> {note}</div>}
+                            </div>
                           )}
                         </td>
                       );

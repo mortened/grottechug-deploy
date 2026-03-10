@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import confetti from "canvas-confetti";
 import { WheelCanvas } from "../components/WheelCanvas";
 
@@ -41,6 +41,16 @@ export function WheelPage() {
 
   const [windowSize, setWindowSize] = useState({ w: 1000, h: 800 });
 
+  // Referanser for idle-spin animasjonen
+  const idleReqRef = useRef<number>();
+  const angleRef = useRef(angle);
+
+  // Hold angleRef oppdatert
+  useEffect(() => {
+    angleRef.current = angle;
+  }, [angle]);
+
+  // Håndter vindusstørrelse for responsivt hjul
   useEffect(() => {
     if (typeof window !== "undefined") {
       setWindowSize({ w: window.innerWidth, h: window.innerHeight });
@@ -50,23 +60,49 @@ export function WheelPage() {
     }
   }, []);
 
+  // Last inn faste deltakere
   async function loadRegulars() {
-    const res = await fetch(`/api/participants?includeGuests=false`);
-    const data: Participant[] = await res.json();
-    setRegulars(data);
+    try {
+      const res = await fetch(`/api/participants?includeGuests=false`);
+      const data: Participant[] = await res.json();
+      setRegulars(data);
 
-    setPresent(prev => {
-      const next = { ...prev };
-      data.forEach(p => {
-        if (next[p.id] === undefined) next[p.id] = true;
+      setPresent(prev => {
+        const next = { ...prev };
+        data.forEach(p => {
+          if (next[p.id] === undefined) next[p.id] = true;
+        });
+        return next;
       });
-      return next;
-    });
+    } catch (error) {
+      console.error("Kunne ikke laste deltakere:", error);
+    }
   }
 
   useEffect(() => {
     loadRegulars();
   }, []);
+
+  // --- IDLE SPIN ANIMASJON ---
+  useEffect(() => {
+    // Stopp sakte-spinnet hvis vi aktivt spinner eller har en vinner på skjermen
+    if (spinning || winner) return;
+
+    let lastTime = performance.now();
+    const idleSpin = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+      angleRef.current += (dt * 0.0004); // Fart på idle-spinnet
+      setAngle(angleRef.current);
+      idleReqRef.current = requestAnimationFrame(idleSpin);
+    };
+
+    idleReqRef.current = requestAnimationFrame(idleSpin);
+
+    return () => {
+      if (idleReqRef.current) cancelAnimationFrame(idleReqRef.current);
+    };
+  }, [spinning, winner]);
 
   const allRegularsSelected = useMemo(() => {
     if (regulars.length === 0) return false;
@@ -83,10 +119,12 @@ export function WheelPage() {
       return next;
     });
   }
+
   function fmtSeconds(v: number | null | undefined) {
     return v == null ? "-" : `${v.toFixed(2)}s`;
   }
 
+  // Søk etter gjester
   useEffect(() => {
     const q = guestQuery.trim();
     if (!q) {
@@ -101,6 +139,8 @@ export function WheelPage() {
         const data: Participant[] = await res.json();
         if (!alive) return;
         setGuestSuggestions(data.slice(0, 8));
+      } catch (error) {
+        console.error("Feil ved søk:", error);
       } finally {
         if (!alive) return;
         setGuestLoading(false);
@@ -132,8 +172,13 @@ export function WheelPage() {
     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, zIndex: 10000 });
   }
 
+  // --- HOVEDFUNKSJON FOR Å SPINNE HJULET ---
   async function spin() {
     if (spinning) return;
+    
+    // Stopp idle-animasjonen umiddelbart
+    if (idleReqRef.current) cancelAnimationFrame(idleReqRef.current);
+
     setWinner("");
     setWinnerImage(null);
     setWinnerStats(null);
@@ -144,140 +189,144 @@ export function WheelPage() {
     setFreezeWheel(true);
     setSpinning(true);
 
-    const res = await fetch(`/api/wheel/spin`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participantIds: candidateIds })
-    });
-    const json = await res.json();
-    const winnerId: string = json?.winner?.id;
-    const winnerName: string = json?.winner?.name ?? "Ukjent";
+    try {
+      const res = await fetch(`/api/wheel/spin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantIds: candidateIds })
+      });
+      const json = await res.json();
+      const winnerId: string = json?.winner?.id;
+      const winnerName: string = json?.winner?.name ?? "Ukjent";
 
-    if (!winnerId) {
-      setSpinning(false);
-      return;
-    }
-
-    // Hent vinnerstats mens hjulet spinner
-    fetch(`/api/person/${winnerId}?semester=all`)
-      .then(r => r.json())
-      .then(data => {
-        const points: Point[] = [...(data?.points || [])];
-        points.sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
-
-        if (points.length === 0) {
-          setWinnerStats({
-            isVirgin: true,
-            lastTime: null,
-            avgTime: null,
-            recordTime: null,
-            projectedNext: null
-          });
-          return;
-        }
-
-        const lastTime = points[points.length - 1].seconds;
-        const avgTime = data?.stats?.avg ?? null;
-        const recordTime = data?.stats?.bestClean ?? data?.stats?.best ?? null;
-
-        let projectedNext: number | null = null;
-
-        if (points.length >= 2) {
-          const n = points.length;
-          const xs = points.map((_, i) => i);
-          const ys = points.map(pt => pt.seconds);
-
-          const sumX = xs.reduce((a, b) => a + b, 0);
-          const sumY = ys.reduce((a, b) => a + b, 0);
-          const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
-          const sumXX = xs.reduce((a, x) => a + x * x, 0);
-
-          const denom = n * sumXX - sumX * sumX;
-          const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
-          const b = (sumY - m * sumX) / n;
-
-          projectedNext = Math.max(0, m * n + b);
-        }
-
-        setWinnerStats({
-          isVirgin: false,
-          lastTime,
-          avgTime,
-          recordTime,
-          projectedNext
-        });
-      })
-      .catch(e => console.error(e));
-
-    const idx = currentNames.findIndex(name => name === winnerName);
-    const n = currentNames.length;
-    const step = (Math.PI * 2) / n;
-    
-    // Tving pekeren til å lande farlig nærme kanten til forrige/neste person ("Near Miss")
-    const direction = Math.random() > 0.5 ? 1 : -1; 
-    const nearMissOffset = (Math.random() * 0.1 + 0.35) * direction; 
-    
-    const targetLocalAngle = (idx * step) + (step / 2) + (nearMissOffset * step);
-    const baseAngle = (Math.PI * 2) - targetLocalAngle;
-
-    let nextAngle = baseAngle + Math.floor(angle / (Math.PI * 2)) * Math.PI * 2;
-    if (nextAngle < angle) nextAngle += Math.PI * 2;
-    
-    // Antall runder før den stopper
-    const extraSpins = 10 + Math.floor(Math.random() * 3); 
-    const endAngle = nextAngle + (Math.PI * 2 * extraSpins);
-    
-    const startAngle = angle;
-    const totalDist = endAngle - startAngle;
-    
-    // Vi setter en lang animasjonstid (8-9 sekunder)
-    const duration = 8000 + Math.random() * 1000; 
-    const t0 = performance.now();
-
-    function anim(now: number) {
-      const t = Math.min(1, (now - t0) / duration);
-      
-      // HØY POTENS (7) gir veldig slak kurve = ekstremt treg fart på slutten
-      const eased = 1 - Math.pow(1 - t, 7); 
-      
-      setAngle(startAngle + (totalDist * eased));
-      
-      // Regn ut hvor mye av vinkelen som faktisk gjenstår
-      const remainingAngle = totalDist * (1 - eased);
-      
-      // CUT-OFF TRIKSET: Hvis hjulet har under 0.003 radianer igjen å spinne (ca 0.15 grader)
-      // er det i praksis usynlig at det beveger seg. Da kutter vi ventetiden og kårer vinneren!
-      if (t < 1 && remainingAngle > 0.003) {
-        requestAnimationFrame(anim);
+      if (!winnerId) {
+        setSpinning(false);
         return;
       }
 
-      setAngle(endAngle % (Math.PI * 2));
-      setWinner(winnerName);
-      setWinnerImage(candidateList.find(p => p.id === winnerId)?.imageUrl || null);
-      setPresent(prev => ({ ...prev, [winnerId]: false }));
-      fireConfetti();
+      // Hent vinnerstats mens hjulet spinner
+      fetch(`/api/person/${winnerId}?semester=all`)
+        .then(r => r.json())
+        .then(data => {
+          const points: Point[] = [...(data?.points || [])];
+          points.sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
+
+          if (points.length === 0) {
+            setWinnerStats({
+              isVirgin: true,
+              lastTime: null,
+              avgTime: null,
+              recordTime: null,
+              projectedNext: null
+            });
+            return;
+          }
+
+          const lastTime = points[points.length - 1].seconds;
+          const avgTime = data?.stats?.avg ?? null;
+          const recordTime = data?.stats?.bestClean ?? data?.stats?.best ?? null;
+
+          let projectedNext: number | null = null;
+
+          if (points.length >= 2) {
+            const n = points.length;
+            const xs = points.map((_, i) => i);
+            const ys = points.map(pt => pt.seconds);
+
+            const sumX = xs.reduce((a, b) => a + b, 0);
+            const sumY = ys.reduce((a, b) => a + b, 0);
+            const sumXY = xs.reduce((a, x, i) => a + x * ys[i], 0);
+            const sumXX = xs.reduce((a, x) => a + x * x, 0);
+
+            const denom = n * sumXX - sumX * sumX;
+            const m = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
+            const b = (sumY - m * sumX) / n;
+
+            projectedNext = Math.max(0, m * n + b);
+          }
+
+          setWinnerStats({
+            isVirgin: false,
+            lastTime,
+            avgTime,
+            recordTime,
+            projectedNext
+          });
+        })
+        .catch(e => console.error(e));
+
+      const idx = currentNames.findIndex(name => name === winnerName);
+      const n = currentNames.length;
+      const step = (Math.PI * 2) / n;
+      
+      // Tving pekeren til å lande farlig nærme kanten ("Near Miss")
+      const direction = Math.random() > 0.5 ? 1 : -1; 
+      const nearMissOffset = (Math.random() * 0.1 + 0.35) * direction; 
+      
+      const targetLocalAngle = (idx * step) + (step / 2) + (nearMissOffset * step);
+      const baseAngle = (Math.PI * 2) - targetLocalAngle;
+
+      // Start der idle-spinnet slapp
+      const currentRot = angleRef.current;
+      let nextAngle = baseAngle + Math.floor(currentRot / (Math.PI * 2)) * Math.PI * 2;
+      if (nextAngle < currentRot) nextAngle += Math.PI * 2;
+      
+      const extraSpins = 10 + Math.floor(Math.random() * 3); 
+      const endAngle = nextAngle + (Math.PI * 2 * extraSpins);
+      
+      const totalDist = endAngle - currentRot;
+      const duration = 8000 + Math.random() * 1000; 
+      const t0 = performance.now();
+
+      function anim(now: number) {
+        const t = Math.min(1, (now - t0) / duration);
+        const eased = 1 - Math.pow(1 - t, 7); 
+        
+        setAngle(currentRot + (totalDist * eased));
+        
+        const remainingAngle = totalDist * (1 - eased);
+        
+        // Kutt ventetiden når bevegelsen er umerkelig
+        if (t < 1 && remainingAngle > 0.003) {
+          requestAnimationFrame(anim);
+          return;
+        }
+
+        setAngle(endAngle % (Math.PI * 2));
+        setWinner(winnerName);
+        setWinnerImage(candidateList.find(p => p.id === winnerId)?.imageUrl || null);
+        setPresent(prev => ({ ...prev, [winnerId]: false }));
+        fireConfetti();
+        setSpinning(false);
+      }
+
+      requestAnimationFrame(anim);
+
+    } catch (error) {
+      console.error("Feil ved spin:", error);
       setSpinning(false);
     }
-
-    requestAnimationFrame(anim);
   }
 
   async function addGuestByName(name: string) {
     setFreezeWheel(false);
     const n = name.trim();
     if (!n) return;
-    const res = await fetch("/api/participants/guest-upsert", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n })
-    });
-    const p: Participant = await res.json();
-    if (!p.isRegular) {
-      setSelectedGuests(prev => (prev.some(x => x.id === p.id) ? prev : [...prev, p]));
+    try {
+      const res = await fetch("/api/participants/guest-upsert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: n })
+      });
+      const p: Participant = await res.json();
+      if (!p.isRegular) {
+        setSelectedGuests(prev => (prev.some(x => x.id === p.id) ? prev : [...prev, p]));
+      }
+      setPresent(prev => ({ ...prev, [p.id]: true }));
+      setGuestQuery("");
+    } catch (error) {
+      console.error("Feil ved tilføring av gjest:", error);
     }
-    setPresent(prev => ({ ...prev, [p.id]: true }));
-    setGuestQuery("");
   }
 
   function removeSelectedGuest(id: string) {
@@ -461,8 +510,9 @@ export function WheelPage() {
                   )}
                 </>
               ) : (
-                <div style={{ color: "var(--muted)", fontSize: "1.2rem", fontWeight: 600 }}>
-                  {spinning ? "Spinner..." : "Klikk for å spinne"}
+                <div style={{ color: "transparent", fontSize: "1.2rem", fontWeight: 600 }}>
+                  {/* Skjult spacer for å holde høyden når hjulet spinner, teksten ligger inni selve canvaset nå */}
+                  &nbsp;
                 </div>
               )}
             </div>
@@ -497,7 +547,15 @@ export function WheelPage() {
                   )}
                 </div>
               )}
-              <WheelCanvas size={wheelSize} names={wheelNames.length ? wheelNames : ["Ingen"]} angle={angle} winnerName={winner} />
+              
+              <WheelCanvas 
+                size={wheelSize} 
+                names={wheelNames.length ? wheelNames : ["Ingen"]} 
+                angle={angle} 
+                winnerName={winner} 
+                isSpinning={spinning}
+                imageSrc="/public/logo-enkel.png" /* Bytt ut med den faktiske bilde-URLen din her */
+              />
             </div>
           </div>
         </div>

@@ -240,7 +240,11 @@ td.sticky, th.sticky {
 .cell { position: relative; padding-right: 18px; }
 .noteDot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 999px; background: var(--danger); box-shadow: 0 0 0 2px rgba(11,16,32,0.6); }
 
-.tooltip { position: absolute; top: -6px; right: 18px; transform: translateY(-100%); background: rgba(18,26,51,0.98); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 24px rgba(0,0,0,0.35); color: rgba(233,237,255,0.95); padding: 8px 10px; border-radius: 10px; font-size: 12px; max-width: 260px; white-space: normal; display: none; z-index: 5; }
+/* For å være 100% sikker på at tooltip på sticky elementer vises over alt */
+th.sticky .tooltip, th.cell .tooltip, td.sticky .tooltip {
+  z-index: 999999;
+}
+
 .cell:hover .tooltip { display: block; }
 
 .separatorRow td { background: rgba(0,0,0,0.18); color: rgba(233,237,255,0.80); font-weight: 700; }
@@ -280,3 +284,88 @@ td.sticky, th.sticky {
 .cardCard:hover { transform: translateY(-2px); transition: 120ms ease; }
 .cardCard img { transition: transform 160ms ease; }
 .cardCard:hover img { transform: scale(1.02); }
+
+.cell { 
+  position: relative; 
+  /* Redusert padding siden prikkene nå er mindre og tettere */
+  padding-right: 22px !important; 
+}
+
+.cell:hover {
+  z-index: 90 !important; 
+}
+
+th {
+  overflow: visible !important;
+}
+
+/* Små prikker i hjørnet */
+.noteDot {
+  position: absolute;
+  top: 4px; 
+  width: 6px; 
+  height: 6px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(11,16,32,0.8);
+  pointer-events: none; 
+  z-index: 1; 
+}
+
+.noteDotRed {
+  background: var(--danger);
+  right: 4px; /* Standard posisjon helt inntil kanten */
+}
+
+.noteDotYellow {
+  background: #facc15;
+  right: 4px; 
+}
+
+/* Tooltip plasseres under cellen */
+.tooltip { 
+  position: absolute; 
+  top: calc(100% + 6px); /* 6px luft under cellen */
+  right: 0; /* Låst til høyre kant */
+  background: rgba(18,26,51,0.98); 
+  border: 1px solid rgba(255,255,255,0.14); 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6); 
+  color: rgba(233,237,255,0.95); 
+  padding: 10px 12px; 
+  border-radius: 10px; 
+  font-size: 13px; 
+  width: max-content; 
+  max-width: 250px; 
+  white-space: normal; 
+  text-align: left;
+  
+  visibility: hidden; 
+  opacity: 0;
+  z-index: 99999 !important; 
+  pointer-events: none; 
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+/* Trekanten som peker OPP mot prikkene */
+.tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: 100%; /* Plasserer på toppen av tooltipen */
+  right: 4px; /* Peker nøyaktig opp på den ytterste prikken */
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent rgba(18,26,51,0.98) transparent;
+  filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.14)); 
+}
+
+.cell:hover .tooltip { 
+  visibility: visible;
+  opacity: 1;
+}
+
+.tableWrap {
+  overflow-x: auto; 
+  overflow-y: visible; 
+  border-radius: 12px; 
+  border: 1px solid var(--border);
+  padding-bottom: 60px; /* Ekstra luft i bunn så nederste tooltip ikke kuttes */
+}

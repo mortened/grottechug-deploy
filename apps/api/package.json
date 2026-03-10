@@ -18,8 +18,8 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.15",
     "@better-auth/prisma-adapter": "^1.5.4",
+    "@libsql/client": "^0.15.15",
     "@prisma/adapter-libsql": "^6.19.2",
     "@prisma/client": "^6.19.2",
     "better-auth": "^1.5.4",

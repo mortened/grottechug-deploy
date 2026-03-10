@@ -1,7 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const importRouter = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -108,7 +109,7 @@ function findHeaderRow(rows: unknown[][]): number {
   return rows.findIndex(r => Array.isArray(r) && r.some(c => String(c ?? "").toLowerCase().includes("deltaker")));
 }
 
-importRouter.post("/excel", upload.single("file"), async (req, res) => {
+importRouter.post("/excel", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Missing file" });
 
   const rules = await prisma.rule.findMany();

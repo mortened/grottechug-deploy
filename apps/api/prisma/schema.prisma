@@ -7,6 +7,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  admin
+  member
+}
+
 model Participant {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -14,9 +19,73 @@ model Participant {
   isRegular Boolean  @default(false)
   createdAt DateTime @default(now())
   imageUrl  String?
+  user      User?
 
   attempts   Attempt[]
   violations Violation[]
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  name          String
+  image         String?
+  role          Role          @default(member)
+  participantId String?       @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  participant  Participant?       @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  authAccounts AuthAccount[]
+  authSessions AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuthAccount {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([providerId, accountId])
+}
+
+model AuthVerification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
 }
 
 model Session {

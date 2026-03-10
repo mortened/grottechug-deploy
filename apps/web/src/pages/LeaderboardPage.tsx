@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { apiFetch } from "../lib/api";
 
 type Semester = "2026V" | "2025H" | "all";
 
@@ -130,7 +131,7 @@ export function LeaderboardPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/leaderboard?semester=${semester}`);
+      const res = await apiFetch(`/api/leaderboard?semester=${semester}`);
       const json: Resp = await res.json();
       setData(json);
     })();

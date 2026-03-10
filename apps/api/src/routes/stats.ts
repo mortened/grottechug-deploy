@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { prisma } from "../prisma.js";
 
 export const statsRouter = Router();
 
@@ -16,7 +16,7 @@ statsRouter.get("/table", async (req, res) => {
     orderBy: [{ isRegular: "desc" }, { name: "asc" }]
   });
 
-  const sessionIds = sessions.map((s: Session) => s.id);
+  const sessionIds = sessions.map((s) => s.id);
 
   const attempts = await prisma.attempt.findMany({
     where: { sessionId: { in: sessionIds } }

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   names: string[];
-  angle: number;          // radians
-  size?: number;          // px
+  angle: number;
+  size?: number;
   winnerName?: string;
   isSpinning?: boolean;
-  imageSrc?: string;      // Valgfritt bilde i senter
+  imageSrc?: string;
 };
 
 const PALETTE = [
@@ -28,12 +28,23 @@ function getSegmentColor(index: number, total: number) {
   return PALETTE[colorIdx];
 }
 
-export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning = false, imageSrc }: Props) {
+export function WheelCanvas({
+  names,
+  angle,
+  size = 360,
+  winnerName,
+  isSpinning = false,
+  imageSrc,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [centerImg, setCenterImg] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
-    if (!imageSrc) return;
+    if (!imageSrc) {
+      setCenterImg(null);
+      return;
+    }
+
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => setCenterImg(img);
@@ -42,31 +53,39 @@ export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning =
   const segments = useMemo(() => {
     const n = Math.max(names.length, 1);
     const step = (Math.PI * 2) / n;
+
     return names.map((name, i) => ({
       name,
       a0: i * step,
       a1: (i + 1) * step,
-      fill: getSegmentColor(i, n)
+      fill: getSegmentColor(i, n),
     }));
   }, [names]);
 
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
+
     const ctx = c.getContext("2d");
     if (!ctx) return;
 
     const scale = size / 360;
     const dpr = window.devicePixelRatio || 1;
+
     c.width = size * dpr;
     c.height = size * dpr;
     c.style.width = `${size}px`;
     c.style.height = `${size}px`;
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const r = size / 2;
-    const cx = r, cy = r;
-    const wheelR = r - (15 * scale); 
+    const cx = r;
+    const cy = r;
+    const wheelR = r - 15 * scale;
+
+    const centerRadius = wheelR * 0.27;
+    const centerImageSize = centerRadius * 2;
 
     ctx.clearRect(0, 0, size, size);
 
@@ -88,9 +107,10 @@ export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning =
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
+      // Segment
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, wheelR, seg.a0, seg.a1); 
+      ctx.arc(cx, cy, wheelR, seg.a0, seg.a1);
       ctx.closePath();
       ctx.globalAlpha = opacity;
       ctx.fillStyle = seg.fill;
@@ -98,53 +118,57 @@ export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning =
       ctx.strokeStyle = seg.fill;
       ctx.lineWidth = 1 * scale;
       ctx.stroke();
-      ctx.globalAlpha = 1.0; 
+      ctx.globalAlpha = 1;
 
+      // Tekst
       const mid = (seg.a0 + seg.a1) / 2;
+
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(mid + Math.PI);        
-      ctx.translate(-wheelR * 0.9, 0); 
+      ctx.rotate(mid);
+
+      // Anker langt ute ved kanten, og skriv innover
+      ctx.translate(wheelR * 0.9, 0);
+
       ctx.fillStyle = `rgba(255,255,255,${opacity})`;
       ctx.font = `400 ${22 * scale}px system-ui, sans-serif`;
-      ctx.textAlign = "left"; 
       ctx.textBaseline = "middle";
+      ctx.textAlign = "right";
+
       ctx.fillText(seg.name, 0, 0);
       ctx.restore();
     }
-    ctx.restore(); 
 
+    ctx.restore();
 
     // --- 2. STATISK TEKST CURVET RUNDT TOPPEN OG BUNNEN ---
     if (!isSpinning && !winnerName) {
-      
-      const staticTextRadius = wheelR * 0.82; 
+      const staticTextRadius = wheelR * 0.82;
       const textFontSize = 20 * scale;
-      
+
       ctx.save();
       ctx.font = `900 ${textFontSize}px system-ui, sans-serif`;
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      
-      // Innstillinger for den tynne sorte outlinen
+
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.5 * scale; // Tykkelse på outline
-      ctx.lineJoin = "round"; // Gjør at hjørnene på outlinen ikke blir "spisse"
-      
-      ctx.shadowColor = "rgba(0,0,0,0.8)"; 
+      ctx.lineWidth = 2.5 * scale;
+      ctx.lineJoin = "round";
+
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
       ctx.shadowBlur = 6 * scale;
       ctx.shadowOffsetY = 2 * scale;
 
-      // --- LINJE 1: TOPP-BUEN ---
+      // TOPP-BUE
       ctx.save();
       ctx.translate(cx, cy);
       const text1 = "TRYKK PÅ HJULET";
-      
+
       const totalWidth1 = ctx.measureText(text1).width;
       const angleSpread1 = totalWidth1 / staticTextRadius;
-      
-      ctx.rotate(-angleSpread1 / 2); 
+
+      ctx.rotate(-angleSpread1 / 2);
 
       for (let i = 0; i < text1.length; i++) {
         const char = text1[i];
@@ -152,26 +176,22 @@ export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning =
         const charAngle = charWidth / staticTextRadius;
 
         ctx.rotate(charAngle / 2);
-        
-        // Tegn outline FØR fyllet!
-        ctx.strokeText(char, 0, -staticTextRadius); 
-        ctx.fillText(char, 0, -staticTextRadius); 
-        
+        ctx.strokeText(char, 0, -staticTextRadius);
+        ctx.fillText(char, 0, -staticTextRadius);
         ctx.rotate(charAngle / 2);
       }
       ctx.restore();
 
-
-      // --- LINJE 2: BUNN-BUEN ---
+      // BUNN-BUE
       ctx.save();
       ctx.translate(cx, cy);
       const text2 = "FOR Å VELGE CHUGGER";
-      
+
       const totalWidth2 = ctx.measureText(text2).width;
       const angleSpread2 = totalWidth2 / staticTextRadius;
-      
-      ctx.rotate(Math.PI); 
-      ctx.rotate(angleSpread2 / 2); 
+
+      ctx.rotate(Math.PI);
+      ctx.rotate(angleSpread2 / 2);
 
       for (let i = 0; i < text2.length; i++) {
         const char = text2[i];
@@ -179,76 +199,76 @@ export function WheelCanvas({ names, angle, size = 360, winnerName, isSpinning =
         const charAngle = charWidth / staticTextRadius;
 
         ctx.rotate(-charAngle / 2);
-        
+
         ctx.save();
         ctx.translate(0, -staticTextRadius);
-        ctx.rotate(Math.PI); 
-        
-        // Tegn outline FØR fyllet!
-        ctx.strokeText(char, 0, 0); 
-        ctx.fillText(char, 0, 0); 
-        
+        ctx.rotate(Math.PI);
+        ctx.strokeText(char, 0, 0);
+        ctx.fillText(char, 0, 0);
         ctx.restore();
-        
+
         ctx.rotate(-charAngle / 2);
       }
       ctx.restore();
 
-      ctx.restore(); 
+      ctx.restore();
     }
-
 
     // --- 3. ROTERENDE SENTER MED BILDE ---
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(angle); 
+    ctx.rotate(angle);
 
     ctx.beginPath();
-    ctx.arc(0, 0, wheelR * 0.22, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff"; 
+    ctx.arc(0, 0, centerRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
     ctx.fill();
 
     if (centerImg) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(0, 0, wheelR * 0.22, 0, Math.PI * 2);
-      ctx.clip(); 
-      const imgSize = wheelR * 0.44; 
-      ctx.drawImage(centerImg, -imgSize/2, -imgSize/2, imgSize, imgSize);
+      ctx.arc(0, 0, centerRadius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(
+        centerImg,
+        -centerImageSize / 2,
+        -centerImageSize / 2,
+        centerImageSize,
+        centerImageSize
+      );
       ctx.restore();
     }
-    ctx.restore();
 
+    ctx.restore();
 
     // --- 4. FINN AKTIV FARGE FOR PEKEREN ---
     const n = Math.max(names.length, 1);
     const step = (Math.PI * 2) / n;
     let pointerAngle = (-angle) % (Math.PI * 2);
-    if (pointerAngle < 0) pointerAngle += Math.PI * 2; 
-    
+    if (pointerAngle < 0) pointerAngle += Math.PI * 2;
+
     const activeIndex = Math.floor(pointerAngle / step) % n;
     const activeColor = segments[activeIndex]?.fill || "#4f72df";
 
-    // --- 5. PEKEREN (Pointer) ---
-    ctx.shadowColor = "rgba(0,0,0,0.4)"; 
+    // --- 5. PEKEREN ---
+    ctx.shadowColor = "rgba(0,0,0,0.4)";
     ctx.shadowBlur = 6 * scale;
     ctx.shadowOffsetY = 2 * scale;
 
     ctx.beginPath();
-    ctx.moveTo(cx + wheelR - (2 * scale), cy); 
-    ctx.lineTo(cx + wheelR + (22 * scale), cy - (14 * scale));
-    ctx.lineTo(cx + wheelR + (18 * scale), cy); 
-    ctx.lineTo(cx + wheelR + (22 * scale), cy + (14 * scale));
+    ctx.moveTo(cx + wheelR - 2 * scale, cy);
+    ctx.lineTo(cx + wheelR + 22 * scale, cy - 14 * scale);
+    ctx.lineTo(cx + wheelR + 18 * scale, cy);
+    ctx.lineTo(cx + wheelR + 22 * scale, cy + 14 * scale);
     ctx.closePath();
 
-    ctx.fillStyle = activeColor; 
+    ctx.fillStyle = activeColor;
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(255,255,255,0.7)"; 
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
     ctx.lineWidth = 1 * scale;
     ctx.stroke();
-
-  }, [segments, angle, size, winnerName, isSpinning, centerImg]);
+  }, [segments, angle, size, winnerName, isSpinning, centerImg, names]);
 
   return <canvas ref={canvasRef} />;
 }

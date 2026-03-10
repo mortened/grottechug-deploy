@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend
 } from "recharts";
+import { apiFetch } from "../lib/api";
 
 type Semester = "2026V" | "2025H" | "all";
 
@@ -37,7 +38,7 @@ export function PersonPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/participants?includeGuests=true`);
+        const res = await apiFetch(`/api/participants?includeGuests=true`);
         const json = await res.json();
         
         const list = json
@@ -63,7 +64,7 @@ export function PersonPage() {
   // 2. Hent hovedpersonens data
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/person/${id}?semester=${semester}`);
+      const res = await apiFetch(`/api/person/${id}?semester=${semester}`);
       const json: Resp = await res.json();
       setData(json);
     })();
@@ -76,7 +77,7 @@ export function PersonPage() {
       return;
     }
     (async () => {
-      const res = await fetch(`/api/person/${compareId}?semester=${semester}`);
+      const res = await apiFetch(`/api/person/${compareId}?semester=${semester}`);
       const json: Resp = await res.json();
       setCompareData(json);
     })();

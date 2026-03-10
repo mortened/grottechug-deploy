@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const violationsRouter = Router();
 
@@ -44,7 +45,7 @@ violationsRouter.get("/", async (req, res) => {
 
 // POST /api/violations/sync
 // Parses all existing attempt notes and creates Violation records. Safe to re-run.
-violationsRouter.post("/sync", async (_req, res) => {
+violationsRouter.post("/sync", requireAdmin, async (_req, res) => {
   function parseRuleCodes(note: string | null | undefined): string[] {
     if (!note) return [];
     const codes: string[] = [];
@@ -94,9 +95,9 @@ violationsRouter.post("/sync", async (_req, res) => {
 });
 
 // DELETE /api/violations/:id
-violationsRouter.delete("/:id", async (req, res) => {
+violationsRouter.delete("/:id", requireAdmin, async (req, res) => {
   try {
-    await prisma.violation.delete({ where: { id: req.params.id } });
+    await prisma.violation.delete({ where: { id: String(req.params.id) } });
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: "Not found" });

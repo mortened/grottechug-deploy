@@ -1,6 +1,8 @@
 // ChugListPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthSession } from "../auth/useAuthSession";
+import { apiFetch } from "../lib/api";
 
 type Semester = "2026V" | "2025H" | "all";
 
@@ -78,6 +80,7 @@ function cellKey(participantId: string, sessionId: string) {
 
 export function ChugListPage() {
   const nav = useNavigate();
+  const { isAdmin } = useAuthSession();
   const [semester, setSemester] = useState<Semester>("2026V");
   const [data, setData] = useState<TableResponse | null>(null);
   
@@ -116,9 +119,9 @@ export function ChugListPage() {
     setData(null);
     
     const [resT, resV, resS] = await Promise.all([
-      fetch(`/api/stats/table?semester=${semester}`),
-      fetch(`/api/violations?semester=${semester}`),
-      fetch(`/api/sessions?semester=${semester}`)
+      apiFetch(`/api/stats/table?semester=${semester}`),
+      apiFetch(`/api/violations?semester=${semester}`),
+      apiFetch(`/api/sessions?semester=${semester}`)
     ]);
     
     const json: TableResponse = await resT.json();
@@ -141,6 +144,15 @@ export function ChugListPage() {
   }
 
   useEffect(() => { load(); }, [semester]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    setNewDayOpen(false);
+    setEditSessionId(null);
+    setDirtyCells(new Set());
+    setDirtySessionNote(false);
+  }, [isAdmin]);
 
   function clickSort(next: SortKey) {
     const same =
@@ -221,7 +233,7 @@ export function ChugListPage() {
   }, [data]);
 
   async function openEditor(sessionId: string) {
-    if (!data) return;
+    if (!data || !isAdmin) return;
 
     setDirtyCells(new Set());
     setDirtySessionNote(false);
@@ -238,7 +250,7 @@ export function ChugListPage() {
     setDraftSeconds(nextSec);
     setDraftNote(nextNote);
 
-    const sRes = await fetch(`/api/sessions?semester=${semester}`);
+    const sRes = await apiFetch(`/api/sessions?semester=${semester}`);
     const sessions = await sRes.json() as Array<{ id: string; note?: string|null }>;
     const found = sessions.find(s => s.id === sessionId);
     setSessionNote(found?.note ?? "");
@@ -273,7 +285,7 @@ export function ChugListPage() {
   }
 
   async function saveAll() {
-    if (!data || !editSessionId) return;
+    if (!data || !editSessionId || !isAdmin) return;
 
     const sid = editSessionId;
     const dirty = Array.from(dirtyCells);
@@ -292,7 +304,7 @@ export function ChugListPage() {
 
       const note = (draftNote[participantId] ?? "").trim();
 
-      await fetch("/api/attempts/upsert", {
+      await apiFetch("/api/attempts/upsert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -306,7 +318,7 @@ export function ChugListPage() {
     }
 
     if (dirtySessionNote) {
-      await fetch(`/api/sessions/${sid}`, {
+      await apiFetch(`/api/sessions/${sid}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note: sessionNote.trim() ? sessionNote.trim() : null })
@@ -322,10 +334,12 @@ export function ChugListPage() {
   const dirtyCount = dirtyCells.size + (dirtySessionNote ? 1 : 0);
 
   async function createNewDay() {
+    if (!isAdmin) return;
+
     try {
       const dateISO = toISOFromDateInput(newDayDate);
 
-      const res = await fetch("/api/sessions", {
+      const res = await apiFetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dateISO, semester: newDaySemester })
@@ -357,11 +371,13 @@ export function ChugListPage() {
   }
 
   async function deleteSession(sessionId: string, dateISO: string) {
+    if (!isAdmin) return;
+
     const confirmMessage = `Er du helt sikker på at du vil SLETTE hele listen for ${fmtDDMMYYYY(dateISO)}?\n\nAlle tider og anmerkninger for denne dagen vil bli slettet for alltid. Dette kan ikke angres!`;
     
     if (window.confirm(confirmMessage)) {
       try {
-        const res = await fetch(`/api/sessions/${sessionId}`, {
+        const res = await apiFetch(`/api/sessions/${sessionId}`, {
           method: "DELETE"
         });
 
@@ -399,7 +415,7 @@ export function ChugListPage() {
               Total
             </button>
           </div>
-        <button className="btn" onClick={() => setNewDayOpen(true)}>+ Ny dag</button>
+        {isAdmin && <button className="btn" onClick={() => setNewDayOpen(true)}>+ Ny dag</button>}
         </div>
 
         <div style={{ flex: 1 }} />
@@ -425,7 +441,7 @@ export function ChugListPage() {
         )}
       </div>
 
-      {newDayOpen && (
+      {isAdmin && newDayOpen && (
         <div className="modalOverlay">
           <div className="card modalCard">
             <h2>Legg til ny dag</h2>
@@ -464,7 +480,7 @@ export function ChugListPage() {
         </div>
       )}
 
-      {editSession && data && (
+      {isAdmin && editSession && data && (
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ margin: 0 }}>Spreadsheet – {fmtDDMMYYYY(editSession.dateISO)}</h2>
@@ -650,7 +666,11 @@ export function ChugListPage() {
                         className="cell" 
                         style={{ cursor: "pointer" }} 
                         onClick={() => clickSort({ kind: "date", sessionId: c.sessionId })}
-                        onDoubleClick={() => openEditor(c.sessionId)}
+                        onDoubleClick={() => {
+                          if (isAdmin) {
+                            openEditor(c.sessionId);
+                          }
+                        }}
                       >
                         {fmtDDMMYYYY(c.dateISO)}
                         {sortKey.kind === "date" && sortKey.sessionId === c.sessionId

@@ -63,6 +63,12 @@ a { color: inherit; text-decoration: none; }
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .navLogo {
   display: block;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -86,9 +92,13 @@ a { color: inherit; text-decoration: none; }
   width: auto;
   filter: drop-shadow(0 0 20px rgba(124, 92, 255, 0.4));
 }
+.heroMode .navControls {
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
 .heroMode .navLinks {
   justify-content: center;
-  width: 100%;
 }
 
 /* 2. COMPACT MODE (Andre sider, eller scrollet) */
@@ -109,6 +119,18 @@ a { color: inherit; text-decoration: none; }
 .compactMode .navLinks {
   justify-content: flex-end;
 }
+.compactMode .navControls {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.navAuth {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
 
 /* 3. PLACEHOLDER
   Dette fikser avstanden på de andre sidene dine!
@@ -118,7 +140,7 @@ a { color: inherit; text-decoration: none; }
   transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .navPlaceholder.hero {
-  height: 330px; /* Matcher Hero-navbaren */
+  height: 300px; /* Matcher Hero-navbaren uten ekstra luft fra auth-knappen */
 }
 .navPlaceholder.compact {
   height: 120px; /* FIKS FOR AVSTAND: 80px logo + padding + 20-30px luft ned til innholdet */
@@ -162,7 +184,13 @@ a { color: inherit; text-decoration: none; }
     flex-direction: column;
     gap: 15px;
   }
+  .compactMode .navControls {
+    justify-content: center;
+  }
   .compactMode .navLinks {
+    justify-content: center;
+  }
+  .navAuth {
     justify-content: center;
   }
   .navPlaceholder.compact {

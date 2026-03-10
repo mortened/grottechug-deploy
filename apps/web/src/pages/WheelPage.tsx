@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import confetti from "canvas-confetti";
 import { WheelCanvas } from "../components/WheelCanvas";
+import { useAuthSession } from "../auth/useAuthSession";
+import { apiFetch } from "../lib/api";
 
 type Participant = { id: string; name: string; isRegular: boolean; imageUrl?: string | null };
 
@@ -21,6 +23,7 @@ function getInitials(name: string) {
 }
 
 export function WheelPage() {
+  const { isAdmin } = useAuthSession();
   const [regulars, setRegulars] = useState<Participant[]>([]);
   const [selectedGuests, setSelectedGuests] = useState<Participant[]>([]);
   const [present, setPresent] = useState<Record<string, boolean>>({});
@@ -42,7 +45,7 @@ export function WheelPage() {
   const [windowSize, setWindowSize] = useState({ w: 1000, h: 800 });
 
   // Referanser for idle-spin animasjonen
-  const idleReqRef = useRef<number>();
+  const idleReqRef = useRef<number | undefined>(undefined);
   const angleRef = useRef(angle);
 
   // Hold angleRef oppdatert
@@ -63,7 +66,7 @@ export function WheelPage() {
   // Last inn faste deltakere
   async function loadRegulars() {
     try {
-      const res = await fetch(`/api/participants?includeGuests=false`);
+      const res = await apiFetch(`/api/participants?includeGuests=false`);
       const data: Participant[] = await res.json();
       setRegulars(data);
 
@@ -82,6 +85,13 @@ export function WheelPage() {
   useEffect(() => {
     loadRegulars();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    setGuestQuery("");
+    setGuestSuggestions([]);
+  }, [isAdmin]);
 
   // --- IDLE SPIN ANIMASJON ---
   useEffect(() => {
@@ -135,10 +145,14 @@ export function WheelPage() {
     setGuestLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/participants/search?query=${encodeURIComponent(q)}`);
+        const res = await apiFetch(`/api/participants/search?query=${encodeURIComponent(q)}`);
         const data: Participant[] = await res.json();
         if (!alive) return;
-        setGuestSuggestions(data.slice(0, 8));
+        const visibleSuggestions = data
+          .filter((participant) => (isAdmin ? true : !participant.isRegular))
+          .filter((participant) => !selectedGuests.some((guest) => guest.id === participant.id))
+          .slice(0, 8);
+        setGuestSuggestions(visibleSuggestions);
       } catch (error) {
         console.error("Feil ved søk:", error);
       } finally {
@@ -150,7 +164,7 @@ export function WheelPage() {
       alive = false;
       clearTimeout(t);
     };
-  }, [guestQuery]);
+  }, [guestQuery, isAdmin, selectedGuests]);
 
   const visiblePeople = useMemo(() => [...regulars, ...selectedGuests], [regulars, selectedGuests]);
   const candidateList = useMemo(() => visiblePeople.filter(p => !!present[p.id]), [visiblePeople, present]);
@@ -190,7 +204,7 @@ export function WheelPage() {
     setSpinning(true);
 
     try {
-      const res = await fetch(`/api/wheel/spin`, {
+      const res = await apiFetch(`/api/wheel/spin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participantIds: candidateIds })
@@ -205,7 +219,7 @@ export function WheelPage() {
       }
 
       // Hent vinnerstats mens hjulet spinner
-      fetch(`/api/person/${winnerId}?semester=all`)
+      apiFetch(`/api/person/${winnerId}?semester=all`)
         .then(r => r.json())
         .then(data => {
           const points: Point[] = [...(data?.points || [])];
@@ -308,22 +322,34 @@ export function WheelPage() {
     }
   }
 
-  async function addGuestByName(name: string) {
+  function addExistingGuest(guest: Participant) {
     setFreezeWheel(false);
+    if (guest.isRegular) return;
+    setSelectedGuests(prev => (prev.some(x => x.id === guest.id) ? prev : [...prev, guest]));
+    setPresent(prev => ({ ...prev, [guest.id]: true }));
+    setGuestQuery("");
+    setGuestSuggestions([]);
+  }
+
+  async function addGuestByName(name: string) {
     const n = name.trim();
     if (!n) return;
+
+    const existingGuest = guestSuggestions.find((guest) => guest.name.toLowerCase() === n.toLowerCase() && !guest.isRegular);
+    if (!isAdmin) {
+      if (existingGuest) addExistingGuest(existingGuest);
+      return;
+    }
+
+    setFreezeWheel(false);
     try {
-      const res = await fetch("/api/participants/guest-upsert", {
+      const res = await apiFetch("/api/participants/guest-upsert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: n })
       });
       const p: Participant = await res.json();
-      if (!p.isRegular) {
-        setSelectedGuests(prev => (prev.some(x => x.id === p.id) ? prev : [...prev, p]));
-      }
-      setPresent(prev => ({ ...prev, [p.id]: true }));
-      setGuestQuery("");
+      if (!p.isRegular) addExistingGuest(p);
     } catch (error) {
       console.error("Feil ved tilføring av gjest:", error);
     }
@@ -347,31 +373,63 @@ export function WheelPage() {
 
       <div className="row" style={{ marginTop: 14 }}>
         <div className="col card" style={{ maxWidth: 460, display: isExpanded ? "none" : "block" }}>
-          <h2 style={{ fontSize: 18, marginBottom: 12 }}>Legg til gjest</h2>
-          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-            <input
-              className="input"
-              value={guestQuery}
-              onChange={e => setGuestQuery(e.target.value)}
-              placeholder="Søk eller skriv nytt navn…"
-            />
-            <button className="btn" onClick={() => addGuestByName(guestQuery)} disabled={!guestQuery.trim()}>
-              Legg til
-            </button>
-          </div>
-
-          {guestQuery.trim() && (
-            <div style={{ marginBottom: 15, display: "grid", gap: 6 }}>
-              {guestLoading && <div style={{ color: "var(--muted)", fontSize: 13 }}>Søker…</div>}
-              {guestSuggestions.map(s => (
-                <button key={s.id} className="btn" style={{ textAlign: "left" }} onClick={() => addGuestByName(s.name)}>
-                  {s.name} <span style={{ opacity: 0.7 }}>{s.isRegular ? "(fast)" : "(gjest)"}</span>
+          {isAdmin ? (
+            <>
+              <h2 style={{ fontSize: 18, marginBottom: 12 }}>Legg til gjest</h2>
+              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                <input
+                  className="input"
+                  value={guestQuery}
+                  onChange={e => setGuestQuery(e.target.value)}
+                  placeholder="Søk eller skriv nytt navn…"
+                />
+                <button className="btn" onClick={() => addGuestByName(guestQuery)} disabled={!guestQuery.trim()}>
+                  Legg til
                 </button>
-              ))}
-            </div>
-          )}
+              </div>
 
-          <div className="hr" />
+              {guestQuery.trim() && (
+                <div style={{ marginBottom: 15, display: "grid", gap: 6 }}>
+                  {guestLoading && <div style={{ color: "var(--muted)", fontSize: 13 }}>Søker…</div>}
+                  {guestSuggestions.map(s => (
+                    <button key={s.id} className="btn" style={{ textAlign: "left" }} onClick={() => addGuestByName(s.name)}>
+                      {s.name} <span style={{ opacity: 0.7 }}>{s.isRegular ? "(fast)" : "(gjest)"}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="hr" />
+            </>
+          ) : (
+            <>
+              <h2 style={{ fontSize: 18, marginBottom: 12 }}>Legg til eksisterende gjest</h2>
+              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                <input
+                  className="input"
+                  value={guestQuery}
+                  onChange={e => setGuestQuery(e.target.value)}
+                  placeholder="Søk etter eksisterende gjest…"
+                />
+              </div>
+
+              {guestQuery.trim() && (
+                <div style={{ marginBottom: 15, display: "grid", gap: 6 }}>
+                  {guestLoading && <div style={{ color: "var(--muted)", fontSize: 13 }}>Søker…</div>}
+                  {!guestLoading && guestSuggestions.length === 0 && (
+                    <div style={{ color: "var(--muted)", fontSize: 13 }}>Ingen eksisterende gjester funnet.</div>
+                  )}
+                  {guestSuggestions.map(s => (
+                    <button key={s.id} className="btn" style={{ textAlign: "left" }} onClick={() => addExistingGuest(s)}>
+                      {s.name} <span style={{ opacity: 0.7 }}>(gjest)</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="hr" />
+            </>
+          )}
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <h2 style={{ margin: 0, fontSize: 18 }}>Deltakere</h2>
@@ -414,7 +472,7 @@ export function WheelPage() {
                       <span style={{ flex: 1 }}>{p.name}</span>
                       <span className="badge">gjest</span>
                     </label>
-                    <button className="btn" onClick={() => removeSelectedGuest(p.id)}>Fjern</button>
+                    {isAdmin && <button className="btn" onClick={() => removeSelectedGuest(p.id)}>Fjern</button>}
                   </div>
                 ))}
               </>

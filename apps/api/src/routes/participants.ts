@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const participantsRouter = Router();
 
@@ -63,7 +64,7 @@ participantsRouter.get("/", async (req, res) => {
  * POST /api/participants/guest-upsert
  * body: { name: "Maria" }
  */
-participantsRouter.post("/guest-upsert", async (req, res) => {
+participantsRouter.post("/guest-upsert", requireAdmin, async (req, res) => {
   const name = String(req.body?.name ?? "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
@@ -83,8 +84,8 @@ participantsRouter.post("/guest-upsert", async (req, res) => {
  * DELETE /api/participants/:id/hard
  * (må ligge før /:id)
  */
-participantsRouter.delete("/:id/hard", async (req, res) => {
-  const { id } = req.params;
+participantsRouter.delete("/:id/hard", requireAdmin, async (req, res) => {
+  const id = String(req.params.id);
 
   await prisma.$transaction([
     prisma.attempt.deleteMany({ where: { participantId: id } }),
@@ -98,7 +99,7 @@ participantsRouter.delete("/:id/hard", async (req, res) => {
 /**
  * DELETE /api/participants/:id
  */
-participantsRouter.delete("/:id", async (req, res) => {
-  await prisma.participant.delete({ where: { id: req.params.id } });
+participantsRouter.delete("/:id", requireAdmin, async (req, res) => {
+  await prisma.participant.delete({ where: { id: String(req.params.id) } });
   res.json({ ok: true });
 });

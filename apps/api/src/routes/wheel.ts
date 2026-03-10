@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { prisma } from "../prisma.js";
 import { randomInt } from "crypto";
 
 export const wheelRouter = Router();

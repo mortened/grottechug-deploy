@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const rulesRouter = Router();
 
@@ -34,7 +35,7 @@ rulesRouter.get("/", async (_req, res) => {
 });
 
 // PUT update existing by code
-rulesRouter.put("/:code", async (req, res) => {
+rulesRouter.put("/:code", requireAdmin, async (req, res) => {
   const code = String(req.params.code).trim();
 
   const label = typeof req.body?.label === "string" ? req.body.label.trim() : undefined;
@@ -61,7 +62,7 @@ rulesRouter.put("/:code", async (req, res) => {
 });
 
 // POST create new rule
-rulesRouter.post("/", async (req, res) => {
+rulesRouter.post("/", requireAdmin, async (req, res) => {
   const code = String(req.body?.code ?? "").trim();
   const label = String(req.body?.label ?? "").trim();
   const details = String(req.body?.details ?? "");

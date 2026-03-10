@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, Tooltip, CartesianGrid, ScatterChart, Scatter, Cell, Legend
 } from "recharts";
+import { apiFetch } from "../lib/api";
 
 type Semester = "all" | "2026V" | "2025H";
 
@@ -80,9 +81,9 @@ export function StatsDashboardPage() {
   useEffect(() => {
     (async () => {
       const [resA, resT, resV] = await Promise.all([
-        fetch(`/api/analytics?semester=${semester}`),
-        fetch(`/api/stats/table?semester=${semester}`),
-        fetch(`/api/violations?semester=${semester}`)
+        apiFetch(`/api/analytics?semester=${semester}`),
+        apiFetch(`/api/stats/table?semester=${semester}`),
+        apiFetch(`/api/violations?semester=${semester}`)
       ]);
       setData(await resA.json());
       setTableData(await resT.json());
@@ -535,7 +536,7 @@ export function StatsDashboardPage() {
                     <YAxis stroke="var(--muted)" tickFormatter={(tick) => `${tick}%`} />
                     <Tooltip 
                       labelFormatter={(label) => `Dato: ${label}`}
-                      formatter={(v: number) => [`${v.toFixed(1)}%`, "Wet-rate"]}
+                      formatter={(value) => [`${Number(value ?? 0).toFixed(1)}%`, "Wet-rate"]}
                       contentStyle={{ backgroundColor: "rgba(18,26,51,0.95)", borderColor: "var(--border)", borderRadius: 8 }}
                     />
                     <Area type="monotone" dataKey="wetPct" stroke="#0ea5e9" fill="rgba(14, 165, 233, 0.3)" strokeWidth={3} activeDot={{ r: 6 }} />

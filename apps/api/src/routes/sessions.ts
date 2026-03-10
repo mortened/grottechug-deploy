@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const sessionsRouter = Router();
 
@@ -106,7 +107,7 @@ sessionsRouter.get("/:id/stats", async (req, res) => {
 });
 
 // POST /api/sessions
-sessionsRouter.post("/", async (req, res) => {
+sessionsRouter.post("/", requireAdmin, async (req, res) => {
   try {
     const { dateISO, semester } = req.body as { dateISO: string; semester: string };
     const date = new Date(dateISO);
@@ -127,7 +128,7 @@ sessionsRouter.post("/", async (req, res) => {
 });
 
 // PATCH /api/sessions/:id  body: { note?: string|null }
-sessionsRouter.patch("/:id", async (req, res) => {
+sessionsRouter.patch("/:id", requireAdmin, async (req, res) => {
   const id = String(req.params.id);
   const noteRaw = req.body?.note;
   const note = noteRaw === undefined ? undefined : String(noteRaw).trim();
@@ -142,7 +143,7 @@ sessionsRouter.patch("/:id", async (req, res) => {
 });
 
 // NY: DELETE for å slette en hel dag
-sessionsRouter.delete("/:id", async (req, res) => {
+sessionsRouter.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const id = String(req.params.id);
 

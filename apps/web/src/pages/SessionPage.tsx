@@ -14,6 +14,7 @@ import {
   PieChart,
   Pie,
 } from "recharts";
+import { apiFetch } from "../lib/api";
 
 type SessionCol = { sessionId: string; dateISO: string; note?: string | null; id?: string };
 type CellData = { seconds: number | null; note: string | null };
@@ -196,9 +197,9 @@ export function SessionPage() {
     setLoading(true);
 
     Promise.all([
-      fetch(`/api/stats/table?semester=all`).then((r) => r.json()),
-      fetch(`/api/sessions`).then((r) => r.json()),
-      fetch(`/api/violations?sessionId=${id}`).then((r) => r.json()),
+      apiFetch(`/api/stats/table?semester=all`).then((r) => r.json()),
+      apiFetch(`/api/sessions`).then((r) => r.json()),
+      apiFetch(`/api/violations?sessionId=${id}`).then((r) => r.json()),
     ])
       .then(([tData, sData, vData]) => {
         setTableData(tData);
@@ -989,10 +990,13 @@ export function SessionPage() {
                   contentStyle={TOOLTIP_STYLE}
                   labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                   itemStyle={{ color: "#e2e8f0" }}
-                  formatter={(value: number) => [
-                    `${value > 0 ? "+" : ""}${value.toFixed(2)}s`,
-                    "Avvik fra projisert tid",
-                  ]}
+                  formatter={(value) => {
+                    const numericValue = Number(value ?? 0);
+                    return [
+                      `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(2)}s`,
+                      "Avvik fra projisert tid",
+                    ];
+                  }}
                 />
                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeWidth={2} />
                 <Bar dataKey="diffProjected" radius={[8, 8, 0, 0]}>
@@ -1031,10 +1035,13 @@ export function SessionPage() {
                     contentStyle={TOOLTIP_STYLE}
                     labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                     itemStyle={{ color: "#e2e8f0" }}
-                    formatter={(value: number) => [
-                      `${value > 0 ? "+" : ""}${value.toFixed(2)}s`,
-                      "Avvik fra PB",
-                    ]}
+                    formatter={(value) => {
+                      const numericValue = Number(value ?? 0);
+                      return [
+                        `${numericValue > 0 ? "+" : ""}${numericValue.toFixed(2)}s`,
+                        "Avvik fra PB",
+                      ];
+                    }}
                   />
                   <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeWidth={2} />
                   <Bar dataKey="pbDelta" radius={[8, 8, 0, 0]}>
@@ -1091,8 +1098,8 @@ export function SessionPage() {
                     contentStyle={TOOLTIP_STYLE}
                     labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                     itemStyle={{ color: "#e2e8f0" }}
-                    formatter={(value: number, _name, props: any) => [
-                      `${value} stk`,
+                    formatter={(value, _name, props: any) => [
+                      `${Number(value ?? 0)} stk`,
                       props?.payload?.label || props?.payload?.name || "Kryss",
                     ]}
                   />
@@ -1124,9 +1131,10 @@ export function SessionPage() {
                   contentStyle={TOOLTIP_STYLE}
                   labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                   itemStyle={{ color: "#e2e8f0" }}
-                  formatter={(value: number, name: string, props: any) => {
+                  formatter={(value, name, props: any) => {
+                    const numericValue = Number(value ?? 0);
                     if (name === "gap") {
-                      return [`+${value.toFixed(2)}s`, "Bak dagens beste"];
+                      return [`+${numericValue.toFixed(2)}s`, "Bak dagens beste"];
                     }
                     return [fmtSeconds(props?.payload?.seconds), "Tid"];
                   }}
@@ -1165,9 +1173,9 @@ export function SessionPage() {
                 contentStyle={TOOLTIP_STYLE}
                 labelStyle={{ color: "#ffffff", fontWeight: 700 }}
                 itemStyle={{ color: "#e2e8f0" }}
-                formatter={(value: number, name: string) => {
-                  if (name === "seconds") return [fmtSeconds(value), "Tid"];
-                  return [String(value), name];
+                formatter={(value, name) => {
+                  if (name === "seconds") return [fmtSeconds(Number(value ?? 0)), "Tid"];
+                  return [String(value), String(name ?? "")];
                 }}
               />
               {sessionStats.avgTime !== null && (

@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { prisma } from "../prisma";
+import { requireAdmin } from "../auth-middleware.js";
+import { prisma } from "../prisma.js";
 
 export const attemptsRouter = Router();
 
@@ -23,7 +24,7 @@ function parseRuleCodes(note: string | null | undefined): string[] {
 // POST /api/attempts/upsert
 // body: { participantId, sessionId, seconds, note, violations? }
 // seconds may be null for violation-only records (e.g. ABSENCE)
-attemptsRouter.post("/upsert", async (req, res) => {
+attemptsRouter.post("/upsert", requireAdmin, async (req, res) => {
   const { participantId, sessionId, seconds, note, violations: violationCodes } = req.body as {
     participantId: string;
     sessionId: string;

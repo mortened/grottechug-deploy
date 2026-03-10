@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../lib/api";
 
 type Person = {
   id: string;
@@ -41,8 +42,8 @@ export function GrottaPage() {
   useEffect(() => {
     (async () => {
       const [peopleRes, statsRes] = await Promise.all([
-        fetch("/api/participants?includeGuests=true"),
-        fetch("/api/stats/table?semester=all")
+        apiFetch("/api/participants?includeGuests=true"),
+        apiFetch("/api/stats/table?semester=all")
       ]);
 
       const peopleJson: Person[] = await peopleRes.json();

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthSession } from "../auth/useAuthSession";
+import { apiFetch } from "../lib/api";
 
 type Semester = "2026V" | "2025H" | "all";
 
@@ -44,6 +46,7 @@ function fmtDate(iso: string) {
 
 export function ViolationsPage() {
   const nav = useNavigate();
+  const { isAdmin } = useAuthSession();
   const [semester, setSemester] = useState<Semester>("all");
   const [detail, setDetail] = useState<DetailResp | null>(null);
   const [violations, setViolations] = useState<ViolationEntry[]>([]);
@@ -53,12 +56,12 @@ export function ViolationsPage() {
 
   async function loadDetail() {
     setDetail(null);
-    const res = await fetch(`/api/crosses/detail?semester=${semester}`);
+    const res = await apiFetch(`/api/crosses/detail?semester=${semester}`);
     setDetail(await res.json());
   }
 
   async function loadViolations() {
-    const res = await fetch(`/api/violations?semester=${semester}`);
+    const res = await apiFetch(`/api/violations?semester=${semester}`);
     setViolations(await res.json());
   }
 
@@ -73,7 +76,9 @@ export function ViolationsPage() {
   }, [showDetails]);
 
   async function deleteViolation(id: string) {
-    await fetch(`/api/violations/${id}`, { method: "DELETE" });
+    if (!isAdmin) return;
+
+    await apiFetch(`/api/violations/${id}`, { method: "DELETE" });
     loadViolations();
     loadDetail();
   }
@@ -237,13 +242,15 @@ export function ViolationsPage() {
                     <td>{v.crosses}</td>
                     <td style={{ color: "var(--muted)" }}>{v.reason ?? "–"}</td>
                     <td>
-                      <button
-                        className="btn btnDanger"
-                        style={{ padding: "4px 10px", fontSize: 12, color: "#ef4444", borderColor: "rgba(239,68,68,0.35)" }}
-                        onClick={e => { e.stopPropagation(); deleteViolation(v.id); }}
-                      >
-                        Slett
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          className="btn btnDanger"
+                          style={{ padding: "4px 10px", fontSize: 12, color: "#ef4444", borderColor: "rgba(239,68,68,0.35)" }}
+                          onClick={e => { e.stopPropagation(); deleteViolation(v.id); }}
+                        >
+                          Slett
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
